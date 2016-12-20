@@ -290,5 +290,5 @@ let main () =
 
 let _ =
   Timings.(time All) main ();
-  if !Clflags.print_timings then Timings.print Format.std_formatter;
-  exit 0
+  if !Clflags.print_timings then Timings.print Format.std_formatter
+  (* exit 0 *)
