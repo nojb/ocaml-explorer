@@ -1,0 +1,43 @@
+diff --git a/asmcomp/x86_gas.ml b/asmcomp/x86_gas.ml
+index f905dc3..c5a27e0 100644
+--- a/asmcomp/x86_gas.ml
++++ b/asmcomp/x86_gas.ml
+@@ -298,14 +298,25 @@ let print_line b = function
+   | Model _
+     -> assert false
+ 
++let hack = ref None
++
+ let generate_asm oc lines =
+   let b = Buffer.create 10000 in
+-  output_string oc "\t.file \"\"\n"; (* PR#7037 *)
++  begin match !hack with
++  | Some buf ->
++      bprintf buf "\t.file \"\"\n"
++  | None ->
++      output_string oc "\t.file \"\"\n"; (* PR#7037 *)
++  end;
+   List.iter
+     (fun i ->
+        Buffer.clear b;
+        print_line b i;
+        Buffer.add_char b '\n';
+-       Buffer.output_buffer oc b;
++       match !hack with
++       | Some buf ->
++           Buffer.add_buffer buf b
++       | None ->
++           Buffer.output_buffer oc b
+     )
+     lines
+diff --git a/asmcomp/x86_gas.mli b/asmcomp/x86_gas.mli
+index 3c3a4ae..96afbb5 100644
+--- a/asmcomp/x86_gas.mli
++++ b/asmcomp/x86_gas.mli
+@@ -15,4 +15,6 @@
+ 
+ (** Emit assembly instructions for gas. *)
+ 
++val hack: Buffer.t option ref
++
+ val generate_asm: out_channel -> X86_ast.asm_line list -> unit

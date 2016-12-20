@@ -5,8 +5,12 @@ let unoption opt =
 
 let compile output_elt s =
   Sys_js.register_file ~name:"main.ml" ~content:(Js.to_string s);
-  Optmain.compile "main.ml"
-  (* output_elt##.value := s *)
+  let s =
+    match Optmain.compile "main.ml" with
+    | Some s -> s
+    | None -> ""
+  in
+  output_elt##.value := Js.string s
 
 let () =
   (* Dom_html.window##alert (Js.string "hello, world"); *)
