@@ -13,7 +13,7 @@ INCLUDES = \
 	-I ../ocaml/compilerlibs -I ../ocaml/stdlib
 
 stdlib.cmis.js:
-	jsoo_mkcmis -verbose stdlib -o stdlib.cmis.js
+	../js_of_ocaml/jsoo_tools/jsoo_mkcmis -verbose ../ocaml/stdlib/stdlib.cma -o stdlib.cmis.js
 
 test.byte: optmain.ml test.ml
 	$(CAMLC) -verbose -nostdlib -annot -I $(JSOO_DIR) \
