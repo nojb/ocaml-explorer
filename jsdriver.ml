@@ -3,8 +3,18 @@ let unoption opt =
   | Some x -> x
   | None -> assert false
 
+let first = ref true
+
 let compile output_elt s =
-  Sys_js.register_file ~name:"main.ml" ~content:(Js.to_string s);
+  let name = "main.ml" in
+  let content = Js.to_string s in
+  let f =
+    if !first then
+      (first := false; Sys_js.register_file)
+    else
+      Sys_js.update_file
+  in
+  f ~name ~content;
   let s =
     match Optmain.compile "main.ml" with
     | Some s -> s
