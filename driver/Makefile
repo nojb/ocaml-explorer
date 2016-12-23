@@ -1,29 +1,36 @@
-CAMLC = ocamlc
+OCAMLC = ocamlc
 JSOO = js_of_ocaml
 JSOO_DIR = $(shell ocamlfind query js_of_ocaml)
+JSOO_MKCMIS = jsoo_mkcmis
+OCAML_SRCDIR = ../ocaml
 
-reload: test.js
+all: stdlib.cmis.js test.js
+
+open: all
 	open index.html
 
-INCLUDES = \
-	-I ../ocaml/utils -I ../ocaml/parsing \
-	-I ../ocaml/typing -I ../ocaml/bytecomp \
-	-I ../ocaml/middle_end \
-	-I ../ocaml/asmcomp -I ../ocaml/driver \
-	-I ../ocaml/compilerlibs -I ../ocaml/stdlib
+INCLUDE = \
+	$(addprefix -I $(OCAML_SRCDIR)/, utils parsing typing bytecomp middle_end asmcomp driver)
+
+optmain.cmo: optmain.ml
+	$(OCAMLC) $(INCLUDE) -c $< -o $@
+
+test.cmo: test.ml optmain.cmo
+	$(OCAMLC) -I $(JSOO_DIR) -ppx $(JSOO_DIR)/ppx_js -c $< -o $@
+
+COMPILERLIBS = \
+	$(addprefix $(OCAML_SRCDIR)/compilerlibs/, ocamlcommon.cma ocamlbytecomp.cma ocamloptcomp.cma)
+
+jsdriver.byte: jsdriver.cmo
+	$(OCAMLC) -I $(JSOO_DIR) $(INCLUDE) $(COMPILERLIBS) js_of_ocaml.cma optmain.cmo $< -o $@
+
+jsdriver.js: jsdriver.byte
+	$(JSOO) --extern-fs --pretty --source-map +weak.js +toplevel.js +dynlink.js $< -o $@
 
 stdlib.cmis.js:
-	../js_of_ocaml/jsoo_tools/jsoo_mkcmis -verbose ../ocaml/stdlib/stdlib.cma -o stdlib.cmis.js
-
-test.byte: optmain.ml test.ml
-	$(CAMLC) -verbose -nostdlib -annot -I $(JSOO_DIR) \
-		$(INCLUDES) stdlib.cma ocamlcommon.cma ocamloptcomp.cma ocamlbytecomp.cma \
-		-ppx $(JSOO_DIR)/ppx_js js_of_ocaml.cma optmain.ml test.ml -o test.byte
-
-test.js: test.byte
-	js_of_ocaml --debug-info --pretty --extern-fs +dynlink.js +toplevel.js +weak.js test.byte
+	$(JSOO_MKCMIS) -prefix /cmis $(OCAML_SRCDIR)/stdlib/stdlib.cma -o $@
 
 clean:
-	$(RM) *.cm* *.byte *.js *.annot
+	$(RM) *.cm* *.byte jsdriver.js *.annot *.map
 
 .PHONY: reload clean stdlib.cmis.js

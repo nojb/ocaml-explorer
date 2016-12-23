@@ -244,7 +244,7 @@ let compile name =
        Optcompile.interface,
        ".cmx",
        ".cmxa");
-    with _ -> () end;
+    with e -> prerr_endline (Printexc.to_string e) end;
     let s = Buffer.contents hack in
     readenv ppf Before_link;
     if
