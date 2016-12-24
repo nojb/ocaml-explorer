@@ -3,9 +3,14 @@ let unoption opt =
   | Some x -> x
   | None -> assert false
 
+let src2asm : (int, int list) Hashtbl.t = Hashtbl.create 0
+let asm2src : (int, int) Hashtbl.t  = Hashtbl.create 0
+
 let first = ref true
 
 let compile output_elt s =
+  Hashtbl.clear src2asm;
+  Hashtbl.clear asm2src;
   let name = "main.ml" in
   let content = Js.to_string s in
   let f =
@@ -16,7 +21,18 @@ let compile output_elt s =
   in
   f ~name ~content;
   let b = Buffer.create 10000 in
-  let out _ l = Buffer.add_string b l in
+  let i = ref 0 in
+  let out n l =
+    incr i;
+    begin match n with
+    | None -> ()
+    | Some n ->
+        Hashtbl.replace asm2src !i n;
+        let ii = try Hashtbl.find src2asm n with Not_found -> [] in
+        Hashtbl.replace src2asm n (!i :: ii)
+    end;
+    Buffer.add_string b l
+  in
   X86_gas.asm_line_callback := Some out;
   Optmain.compile "main.ml";
   let s = Buffer.contents b in
