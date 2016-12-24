@@ -15,11 +15,11 @@ let compile output_elt s =
       Sys_js.update_file
   in
   f ~name ~content;
-  let s =
-    match Optmain.compile "main.ml" with
-    | Some s -> s
-    | None -> ""
-  in
+  let b = Buffer.create 10000 in
+  let out _ l = Buffer.add_string b l in
+  X86_gas.asm_line_callback := Some out;
+  Optmain.compile "main.ml";
+  let s = Buffer.contents b in
   output_elt##setValue (Js.string s)
 
 module CodeMirror : sig

@@ -1,43 +1,163 @@
+diff --git a/.depend b/.depend
+index 4513260..4bfd8ad 100644
+--- a/.depend
++++ b/.depend
+@@ -893,18 +893,18 @@ asmcomp/deadcode.cmo : asmcomp/reg.cmi asmcomp/proc.cmi asmcomp/mach.cmi \
+ asmcomp/deadcode.cmx : asmcomp/reg.cmx asmcomp/proc.cmx asmcomp/mach.cmx \
+     utils/config.cmx asmcomp/deadcode.cmi
+ asmcomp/deadcode.cmi : asmcomp/mach.cmi
+-asmcomp/emit.cmo : asmcomp/x86_proc.cmi asmcomp/x86_masm.cmi \
+-    asmcomp/x86_gas.cmi asmcomp/x86_dsl.cmi asmcomp/x86_ast.cmi \
+-    asmcomp/reg.cmi asmcomp/proc.cmi utils/misc.cmi asmcomp/mach.cmi \
+-    asmcomp/linearize.cmi asmcomp/emitaux.cmi middle_end/debuginfo.cmi \
+-    utils/config.cmi asmcomp/compilenv.cmi asmcomp/cmm.cmi utils/clflags.cmi \
+-    asmcomp/branch_relaxation.cmi asmcomp/arch.cmo asmcomp/emit.cmi
+-asmcomp/emit.cmx : asmcomp/x86_proc.cmx asmcomp/x86_masm.cmx \
+-    asmcomp/x86_gas.cmx asmcomp/x86_dsl.cmx asmcomp/x86_ast.cmi \
+-    asmcomp/reg.cmx asmcomp/proc.cmx utils/misc.cmx asmcomp/mach.cmx \
+-    asmcomp/linearize.cmx asmcomp/emitaux.cmx middle_end/debuginfo.cmx \
+-    utils/config.cmx asmcomp/compilenv.cmx asmcomp/cmm.cmx utils/clflags.cmx \
+-    asmcomp/branch_relaxation.cmx asmcomp/arch.cmx asmcomp/emit.cmi
++asmcomp/emit.cmo : asmcomp/x86_proc.cmi asmcomp/x86_gas.cmi \
++    asmcomp/x86_dsl.cmi asmcomp/x86_ast.cmi asmcomp/reg.cmi asmcomp/proc.cmi \
++    utils/misc.cmi asmcomp/mach.cmi asmcomp/linearize.cmi asmcomp/emitaux.cmi \
++    middle_end/debuginfo.cmi utils/config.cmi asmcomp/compilenv.cmi \
++    asmcomp/cmm.cmi utils/clflags.cmi asmcomp/branch_relaxation.cmi \
++    asmcomp/arch.cmo asmcomp/emit.cmi
++asmcomp/emit.cmx : asmcomp/x86_proc.cmx asmcomp/x86_gas.cmx \
++    asmcomp/x86_dsl.cmx asmcomp/x86_ast.cmi asmcomp/reg.cmx asmcomp/proc.cmx \
++    utils/misc.cmx asmcomp/mach.cmx asmcomp/linearize.cmx asmcomp/emitaux.cmx \
++    middle_end/debuginfo.cmx utils/config.cmx asmcomp/compilenv.cmx \
++    asmcomp/cmm.cmx utils/clflags.cmx asmcomp/branch_relaxation.cmx \
++    asmcomp/arch.cmx asmcomp/emit.cmi
+ asmcomp/emit.cmi : asmcomp/linearize.cmi asmcomp/cmm.cmi
+ asmcomp/emitaux.cmo : middle_end/debuginfo.cmi utils/config.cmi \
+     asmcomp/cmm.cmi utils/clflags.cmi asmcomp/arch.cmo asmcomp/emitaux.cmi
+diff --git a/asmcomp/amd64/emit.mlp b/asmcomp/amd64/emit.mlp
+index 85b4cee..90df224 100644
+--- a/asmcomp/amd64/emit.mlp
++++ b/asmcomp/amd64/emit.mlp
+@@ -484,6 +484,10 @@ let tailrec_entry_point = ref 0
+ 
+ (* Emit an instruction *)
+ let emit_instr fallthrough i =
++  begin match i.dbg with
++  | [] -> ()
++  | {Debuginfo.dinfo_line; _} :: _ -> sourceline (Some dinfo_line)
++  end;
+   emit_debug_info i.dbg;
+   match i.desc with
+   | Lend -> ()
+@@ -929,6 +933,7 @@ let fundecl fundecl =
+   end;
+   def_label !tailrec_entry_point;
+   emit_all true fundecl.fun_body;
++  sourceline None;
+   List.iter emit_call_gc !call_gc_sites;
+   emit_call_bound_errors ();
+   if frame_required() then begin
+@@ -1127,7 +1132,7 @@ let end_assembly() =
+     if !Emitaux.create_asm_file then
+       Some
+         (
+-         (if X86_proc.masm then X86_masm.generate_asm
++          (if X86_proc.masm then assert false (* X86_masm.generate_asm *)
+           else X86_gas.generate_asm) !Emitaux.output_channel
+         )
+     else
 diff --git a/asmcomp/x86_gas.ml b/asmcomp/x86_gas.ml
-index f905dc3..c5a27e0 100644
+index f905dc3..f7a58a1 100644
 --- a/asmcomp/x86_gas.ml
 +++ b/asmcomp/x86_gas.ml
 @@ -298,14 +298,25 @@ let print_line b = function
    | Model _
      -> assert false
  
-+let hack = ref None
++let asm_line_callback = ref None
 +
  let generate_asm oc lines =
    let b = Buffer.create 10000 in
 -  output_string oc "\t.file \"\"\n"; (* PR#7037 *)
-+  begin match !hack with
-+  | Some buf ->
-+      bprintf buf "\t.file \"\"\n"
++  begin match !asm_line_callback with
++  | Some _ ->
++      ()
 +  | None ->
 +      output_string oc "\t.file \"\"\n"; (* PR#7037 *)
 +  end;
    List.iter
-     (fun i ->
+-    (fun i ->
++    (fun (n, i) ->
         Buffer.clear b;
         print_line b i;
         Buffer.add_char b '\n';
 -       Buffer.output_buffer oc b;
-+       match !hack with
-+       | Some buf ->
-+           Buffer.add_buffer buf b
++       match !asm_line_callback with
++       | Some f ->
++           f n (Buffer.contents b)
 +       | None ->
 +           Buffer.output_buffer oc b
      )
      lines
 diff --git a/asmcomp/x86_gas.mli b/asmcomp/x86_gas.mli
-index 3c3a4ae..96afbb5 100644
+index 3c3a4ae..978049d 100644
 --- a/asmcomp/x86_gas.mli
 +++ b/asmcomp/x86_gas.mli
 @@ -15,4 +15,6 @@
  
  (** Emit assembly instructions for gas. *)
  
-+val hack: Buffer.t option ref
+-val generate_asm: out_channel -> X86_ast.asm_line list -> unit
++val asm_line_callback: (int option -> string -> unit) option ref
 +
- val generate_asm: out_channel -> X86_ast.asm_line list -> unit
++val generate_asm: out_channel -> (int option * X86_ast.asm_line) list -> unit
+diff --git a/asmcomp/x86_proc.ml b/asmcomp/x86_proc.ml
+index 30b77af..f83d1dc 100644
+--- a/asmcomp/x86_proc.ml
++++ b/asmcomp/x86_proc.ml
+@@ -254,22 +254,21 @@ let assemble_file infile outfile =
+   | Some content -> content outfile; binary_content := None; 0
+ 
+ let asm_code = ref []
++let curr_source_line = ref None
+ 
+-let directive dir = asm_code := dir :: !asm_code
++let sourceline n = curr_source_line := n
++let directive dir = asm_code := (!curr_source_line, dir) :: !asm_code
+ let emit ins = directive (Ins ins)
+ 
+ let reset_asm_code () = asm_code := []
+ 
+ let generate_code asm =
+   let instrs = List.rev !asm_code in
+-  let instrs =
+-    List.fold_left (fun instrs pass -> pass instrs) instrs !assembler_passes
+-  in
+   begin match asm with
+   | Some f -> f instrs
+   | None -> ()
+   end;
+   begin match !internal_assembler with
+-  | Some f -> binary_content := Some (f instrs)
++  | Some f -> binary_content := Some (f (List.map snd instrs))
+   | None -> binary_content := None
+   end
+diff --git a/asmcomp/x86_proc.mli b/asmcomp/x86_proc.mli
+index 388420b..c709fd2 100644
+--- a/asmcomp/x86_proc.mli
++++ b/asmcomp/x86_proc.mli
+@@ -36,13 +36,14 @@ val buf_bytes_directive:
+ 
+ (** Buffer of assembly code *)
+ 
++val sourceline: int option -> unit
+ val emit: instruction -> unit
+ val directive: asm_line -> unit
+ val reset_asm_code: unit -> unit
+ 
+ (** Code emission *)
+ 
+-val generate_code: (X86_ast.asm_line list -> unit) option -> unit
++val generate_code: ((int option * X86_ast.asm_line) list -> unit) option -> unit
+   (** Post-process the stream of instructions.  Dump it (using
+       the provided syntax emitter) in a file (if provided) and
+       compile it with an internal assembler (if registered

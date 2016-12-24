@@ -16,7 +16,7 @@ optmain.cmo: optmain.ml
 	$(OCAMLC) $(INCLUDE) -c $< -o $@
 
 jsdriver.cmo: jsdriver.ml optmain.cmo
-	$(OCAMLC) -I $(JSOO_DIR) -ppx $(JSOO_DIR)/ppx_js -c $< -o $@
+	$(OCAMLC) -I $(JSOO_DIR) $(INCLUDE) -ppx $(JSOO_DIR)/ppx_js -c $< -o $@
 
 COMPILERLIBS = \
 	$(addprefix $(OCAML_SRCDIR)/compilerlibs/, ocamlcommon.cma ocamlbytecomp.cma ocamloptcomp.cma)

@@ -236,8 +236,6 @@ let compile name =
     readenv ppf Before_args;
     anonymous name;
     Arg.parse (Arch.command_line_options @ Options.list) anonymous usage;
-    let hack = Buffer.create 10000 in
-    X86_gas.hack := Some hack;
     begin try Compenv.process_deferred_actions
       (ppf,
        Optcompile.implementation ~backend,
@@ -245,7 +243,6 @@ let compile name =
        ".cmx",
        ".cmxa");
     with e -> prerr_endline (Printexc.to_string e) end;
-    let s = Buffer.contents hack in
     readenv ppf Before_link;
     if
       List.length (List.filter (fun x -> !x)
@@ -291,11 +288,9 @@ let compile name =
       Compmisc.init_path true;
       Asmlink.link ppf (get_objfiles ~with_ocamlparam:true) target;
       Warnings.check_fatal ();
-    end;
-    Some s
+    end
   with x ->
-    Location.report_exception ppf x;
-    None
+    Location.report_exception ppf x
       (* exit 2 *)
 
 (* let _ = *)
