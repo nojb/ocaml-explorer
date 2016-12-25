@@ -13,10 +13,15 @@ body {
   width:100vw;  /* As above. */
 }
 
+#console {
+  color: red;
+  font-family: monospace;
+}
+
 .container {
-position: relative;
-width: 100%;
-height: 80%;
+  position: relative;
+  width: 100%;
+  height: 80%;
 }
 
 .panel {
@@ -43,6 +48,8 @@ height: 80%;
   </head>
   <body>
     <h1>OCaml Explorer</h1>
+    <div id="console">
+    </div>
     <section class="container">
       <div id="left" class="panel"></div>
       <div id="right" class="panel"></div>

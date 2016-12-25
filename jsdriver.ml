@@ -6,6 +6,13 @@ let opt_iter f = function
   | None -> ()
   | Some x -> f x
 
+let log s =
+  let console = Dom_html.getElementById "console" in
+  console##.textContent := Js.Opt.return (Js.string s)
+
+let logf fmt =
+  Printf.ksprintf log fmt
+
 let src2asm : (int, int list) Hashtbl.t = Hashtbl.create 0
 let asm2src : (int, int) Hashtbl.t  = Hashtbl.create 0
 
@@ -30,6 +37,7 @@ let compile output_elt s =
     begin match n with
     | None -> ()
     | Some n ->
+        let n = n - 1 in (* zero-based *)
         Hashtbl.replace asm2src !i n;
         let ii = try Hashtbl.find src2asm n with Not_found -> [] in
         Hashtbl.replace src2asm n (!i :: ii)
@@ -154,12 +162,21 @@ let () =
     in
     Printf.ksprintf prerr_endline "cursorActivity (line=%d, ch=%s)" curs##.line ch;
     let line = curs##.line in
-    let lines = try Hashtbl.find src2asm (Hashtbl.find asm2src line) with Not_found -> [line] in
-    lastMarks := List.map (fun line ->
-        output_elt##markText
-          (CodeMirror.createLineCh line (Some 0))
-          (CodeMirror.createLineCh line None)
-          (CodeMirror.createMarkOptions ~className:"foo" ())) lines
+    logf "LINE: %d" line;
+    match Hashtbl.find asm2src line with
+    | n ->
+        let lines = try Hashtbl.find src2asm n with Not_found -> [] in
+        lastMarks := List.map (fun line ->
+            output_elt##markText
+              (CodeMirror.createLineCh line (Some 0))
+              (CodeMirror.createLineCh line None)
+              (CodeMirror.createMarkOptions ~className:"foo" ())) lines;
+        lastMarks := input_elt##markText
+            (CodeMirror.createLineCh n (Some 0))
+            (CodeMirror.createLineCh n None)
+            (CodeMirror.createMarkOptions ~className:"foo" ()) :: !lastMarks
+    | exception Not_found ->
+        ()
   in
   output_elt##on "cursorActivity" (Js.wrap_callback cursorActivity);
   let compile_btn = Dom_html.getElementById "compile_btn" in
