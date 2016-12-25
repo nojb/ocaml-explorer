@@ -143,9 +143,9 @@ let () =
   let input_elt = CodeMirror.createCodeMirror ~lineNumbers:true ~mode:"text/x-ocaml" ~value ~lineWrapping:true input_elt in
   let output_elt = Dom_html.getElementById "right" in
   let output_elt = CodeMirror.createCodeMirror ~lineNumbers:true ~mode:"text/x-gas" ~readOnly:true output_elt in
-  let lastMark = ref None in
+  let lastMarks = ref [] in
   let cursorActivity () =
-    opt_iter (fun mark -> mark##clear) !lastMark;
+    List.iter (fun mark -> mark##clear) !lastMarks;
     let curs = output_elt##getCursor in
     let ch =
       match Js.Optdef.to_option curs##.ch with
@@ -153,10 +153,13 @@ let () =
       | Some ch -> string_of_int ch
     in
     Printf.ksprintf prerr_endline "cursorActivity (line=%d, ch=%s)" curs##.line ch;
-    lastMark := Some (output_elt##markText
-                        (CodeMirror.createLineCh curs##.line (Some 0))
-                        (CodeMirror.createLineCh curs##.line None)
-                        (CodeMirror.createMarkOptions ~className:"foo" ()))
+    let line = curs##.line in
+    let lines = try Hashtbl.find src2asm (Hashtbl.find asm2src line) with Not_found -> [line] in
+    lastMarks := List.map (fun line ->
+        output_elt##markText
+          (CodeMirror.createLineCh line (Some 0))
+          (CodeMirror.createLineCh line None)
+          (CodeMirror.createMarkOptions ~className:"foo" ())) lines
   in
   output_elt##on "cursorActivity" (Js.wrap_callback cursorActivity);
   let compile_btn = Dom_html.getElementById "compile_btn" in
