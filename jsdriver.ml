@@ -79,6 +79,8 @@ module CodeMirror : sig
       method off: string -> (unit -> unit) Js.callback -> unit Js.meth
       method markText: lineCh Js.t -> lineCh Js.t -> markOptions Js.t -> textMarker Js.t Js.meth
       method scrollIntoView: _ Js.t -> unit Js.meth
+      method addLineClass: int -> Js.js_string Js.t -> Js.js_string Js.t -> unit Js.meth
+      method removeLineClass: int -> Js.js_string Js.t -> Js.js_string Js.t -> unit Js.meth
     end
 
   val createCodeMirror: ?lineNumbers:bool -> ?readOnly:bool -> ?mode:string -> ?value:string -> ?lineWrapping:bool -> #Dom.node Js.t -> codeMirror Js.t
@@ -121,6 +123,8 @@ end = struct
       method off: string -> (unit -> unit) Js.callback -> unit Js.meth
       method markText: lineCh Js.t -> lineCh Js.t -> markOptions Js.t -> textMarker Js.t Js.meth
       method scrollIntoView: _ Js.t -> unit Js.meth
+      method addLineClass: int -> Js.js_string Js.t -> Js.js_string Js.t -> unit Js.meth
+      method removeLineClass: int -> Js.js_string Js.t -> Js.js_string Js.t -> unit Js.meth
     end
 
   let createCodeMirror ?lineNumbers ?readOnly ?mode ?value ?lineWrapping node =
@@ -157,8 +161,8 @@ let () =
   let lastMarks = ref [] in
   let lastMarksSource = ref None in
   let cursorActivitySource () =
-    List.iter (fun mark -> mark##clear) !lastMarks;
-    opt_iter (fun mark -> mark##clear) !lastMarksSource;
+    List.iter (fun line -> output_elt##removeLineClass line (Js.string "background") (Js.string "foo")) !lastMarks;
+    opt_iter (fun line -> input_elt##removeLineClass line (Js.string "background") (Js.string "foo")) !lastMarksSource;
     let curs = input_elt##getCursor in
     let ch =
       match Js.Opt.to_option curs##.ch with
@@ -169,17 +173,13 @@ let () =
     let n = curs##.line in
     logf "LINE: %d" n;
     let lines = try Hashtbl.find src2asm n with Not_found -> [] in
-    lastMarks := List.map (fun line ->
-        output_elt##markText
-          (CodeMirror.createLineCh line (Js.Opt.return 0))
-          (CodeMirror.createLineCh line Js.null)
-          (CodeMirror.createMarkOptions ~className:"foo" ())) lines;
-    lastMarksSource := Some (input_elt##markText
-                               (CodeMirror.createLineCh n (Js.Opt.return 0))
-                               (CodeMirror.createLineCh n Js.null)
-                               (CodeMirror.createMarkOptions ~className:"foo" ()));
-    let fst_line = List.fold_left min max_int lines in
-    if fst_line < max_int then
+    lastMarks := lines;
+    List.iter (fun line ->
+        output_elt##addLineClass line (Js.string "background") (Js.string "foo")
+      ) lines;
+    lastMarksSource := Some n;
+    input_elt##addLineClass n (Js.string "background") (Js.string "foo");
+    if lines <> [] then
       let pos =
         object%js
           val from =
@@ -197,8 +197,8 @@ let () =
       output_elt##scrollIntoView pos
   in
   let cursorActivity () =
-    List.iter (fun mark -> mark##clear) !lastMarks;
-    opt_iter (fun mark -> mark##clear) !lastMarksSource;
+    List.iter (fun line -> output_elt##removeLineClass line (Js.string "background") (Js.string "foo")) !lastMarks;
+    opt_iter (fun line -> input_elt##removeLineClass line (Js.string "background") (Js.string "foo")) !lastMarksSource;
     let curs = output_elt##getCursor in
     let ch =
       match Js.Opt.to_option curs##.ch with
@@ -211,15 +211,12 @@ let () =
     match Hashtbl.find asm2src line with
     | n ->
         let lines = try Hashtbl.find src2asm n with Not_found -> [] in
-        lastMarks := List.map (fun line ->
-            output_elt##markText
-              (CodeMirror.createLineCh line (Js.Opt.return 0))
-              (CodeMirror.createLineCh line Js.null)
-              (CodeMirror.createMarkOptions ~className:"foo" ())) lines;
-        lastMarksSource := Some (input_elt##markText
-                                   (CodeMirror.createLineCh n (Js.Opt.return 0))
-                                   (CodeMirror.createLineCh n Js.null)
-                                   (CodeMirror.createMarkOptions ~className:"foo" ()))
+        lastMarks := lines;
+        List.iter (fun line ->
+            output_elt##addLineClass line (Js.string "background") (Js.string "foo")
+          ) lines;
+        lastMarksSource := Some n;
+        input_elt##addLineClass n (Js.string "background") (Js.string "foo");
     | exception Not_found ->
         ()
   in
