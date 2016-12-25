@@ -1,7 +1,10 @@
-let unoption opt =
-  match Js.Opt.to_option opt with
-  | Some x -> x
-  | None -> assert false
+let opt_map f = function
+  | None -> None
+  | Some x -> Some (f x)
+
+let opt_iter f = function
+  | None -> ()
+  | Some x -> f x
 
 let src2asm : (int, int list) Hashtbl.t = Hashtbl.create 0
 let asm2src : (int, int) Hashtbl.t  = Hashtbl.create 0
@@ -52,7 +55,12 @@ module CodeMirror : sig
       method className: string Js.readonly_prop
     end
 
-  val createMarkOptions: string -> markOptions Js.t
+  val createMarkOptions: ?className:string -> unit -> markOptions Js.t
+
+  class type textMarker =
+    object
+      method clear: unit Js.meth
+    end
 
   class type codeMirror =
     object
@@ -61,10 +69,10 @@ module CodeMirror : sig
       method getCursor: lineCh Js.t Js.meth
       method on: string -> (unit -> unit) Js.callback -> unit Js.meth
       method off: string -> (unit -> unit) Js.callback -> unit Js.meth
-      method markText: lineCh Js.t -> lineCh Js.t -> markOptions Js.t -> unit Js.meth
+      method markText: lineCh Js.t -> lineCh Js.t -> markOptions Js.t -> textMarker Js.t Js.meth
     end
 
-  val createCodeMirror: ?lineNumbers:bool -> ?readOnly:bool -> ?mode:string -> ?value:string -> #Dom.node Js.t -> codeMirror Js.t
+  val createCodeMirror: ?lineNumbers:bool -> ?readOnly:bool -> ?mode:string -> ?value:string -> ?lineWrapping:bool -> #Dom.node Js.t -> codeMirror Js.t
 end = struct
   class type lineCh =
     object
@@ -82,9 +90,16 @@ end = struct
       method className: string Js.readonly_prop
     end
 
-  let createMarkOptions className =
-    object%js
-      val className = className
+  let createMarkOptions ?className () =
+    let open Js.Unsafe in
+    let add s x l = match x with None -> l | Some x -> (s, inject x) :: l in
+    let fields = [] in
+    let fields = add "className" (opt_map Js.string className) fields in
+    obj (Array.of_list fields)
+
+  class type textMarker =
+    object
+      method clear: unit Js.meth
     end
 
   class type codeMirror =
@@ -94,29 +109,20 @@ end = struct
       method getCursor: lineCh Js.t Js.meth
       method on: string -> (unit -> unit) Js.callback -> unit Js.meth
       method off: string -> (unit -> unit) Js.callback -> unit Js.meth
-      method markText: lineCh Js.t -> lineCh Js.t -> markOptions Js.t -> unit Js.meth
+      method markText: lineCh Js.t -> lineCh Js.t -> markOptions Js.t -> textMarker Js.t Js.meth
     end
 
-  let createCodeMirror ?lineNumbers ?readOnly ?mode ?value node =
+  let createCodeMirror ?lineNumbers ?readOnly ?mode ?value ?lineWrapping node =
     let open Js.Unsafe in
     let add s x params = match x with Some x -> (s, inject x) :: params | None -> params in
     let params = add "lineNumbers" lineNumbers [] in
-    let readOnly = match readOnly with None -> None | Some readOnly -> Some (Js.bool readOnly) in
     let params = add "readOnly" readOnly params in
-    let mode = match mode with None -> None | Some mode -> Some (Js.string mode) in
-    let params = add "mode" mode params in
-    let value = match value with None -> None | Some value -> Some (Js.string value) in
-    let params = add "value" value params in
-    let node = Js.Unsafe.inject node in
-    let args = if params <> [] then [|node; Js.Unsafe.obj (Array.of_list params)|] else [|node|] in
-    Js.Unsafe.fun_call (Js.Unsafe.js_expr "CodeMirror") args
-
-  (* let markText cm start stop className = *)
-  (*   let open Js.Unsafe in *)
-  (*   let start = obj [|"line", inject start#line; "ch", inject start#ch|] in *)
-  (*   let stop = obj [|"line", inject stop#line; "ch", inject stop#ch|] in *)
-  (*   let className = "className", inject (Js.string className) in *)
-  (*   meth_call cm "markText" [|start; stop; obj [|className|]|] *)
+    let params = add "mode" (opt_map Js.string mode) params in
+    let params = add "value" (opt_map Js.string value) params in
+    let params = add "lineWrapping" lineWrapping params in
+    let node = inject node in
+    let args = if params <> [] then [|node; obj (Array.of_list params)|] else [|node|] in
+    fun_call (js_expr "CodeMirror") args
 end
 
 let value =
@@ -134,18 +140,23 @@ let () =
 let () =
   (* Dom_html.window##alert (Js.string "hello, world"); *)
   let input_elt = Dom_html.getElementById "left" in
-  let input_elt = CodeMirror.createCodeMirror ~lineNumbers:true ~mode:"text/x-ocaml" ~value input_elt in
+  let input_elt = CodeMirror.createCodeMirror ~lineNumbers:true ~mode:"text/x-ocaml" ~value ~lineWrapping:true input_elt in
   let output_elt = Dom_html.getElementById "right" in
   let output_elt = CodeMirror.createCodeMirror ~lineNumbers:true ~mode:"text/x-gas" ~readOnly:true output_elt in
+  let lastMark = ref None in
   let cursorActivity () =
+    opt_iter (fun mark -> mark##clear) !lastMark;
     let curs = output_elt##getCursor in
     let ch =
-      match Js.Optdef.to_option curs ##. ch with
+      match Js.Optdef.to_option curs##.ch with
       | None -> "null"
       | Some ch -> string_of_int ch
     in
     Printf.ksprintf prerr_endline "cursorActivity (line=%d, ch=%s)" curs##.line ch;
-    output_elt##markText curs (CodeMirror.createLineCh curs##.line None) (CodeMirror.createMarkOptions "foo")
+    lastMark := Some (output_elt##markText
+                        (CodeMirror.createLineCh curs##.line (Some 0))
+                        (CodeMirror.createLineCh curs##.line None)
+                        (CodeMirror.createMarkOptions ~className:"foo" ()))
   in
   output_elt##on "cursorActivity" (Js.wrap_callback cursorActivity);
   let compile_btn = Dom_html.getElementById "compile_btn" in
