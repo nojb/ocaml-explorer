@@ -52,11 +52,11 @@ let compile output_elt s =
 module CodeMirror : sig
   class type lineCh =
     object
-      method line: int Js.readonly_prop
-      method ch: int Js.optdef Js.readonly_prop
+      method line: int Js.prop
+      method ch: int Js.opt Js.prop
     end
 
-  val createLineCh: int -> int option -> lineCh Js.t
+  val createLineCh: int -> int Js.opt -> lineCh Js.t
 
   class type markOptions =
     object
@@ -78,20 +78,22 @@ module CodeMirror : sig
       method on: string -> (unit -> unit) Js.callback -> unit Js.meth
       method off: string -> (unit -> unit) Js.callback -> unit Js.meth
       method markText: lineCh Js.t -> lineCh Js.t -> markOptions Js.t -> textMarker Js.t Js.meth
+      method scrollIntoView: _ Js.t -> unit Js.meth
     end
 
   val createCodeMirror: ?lineNumbers:bool -> ?readOnly:bool -> ?mode:string -> ?value:string -> ?lineWrapping:bool -> #Dom.node Js.t -> codeMirror Js.t
 end = struct
   class type lineCh =
     object
-      method line: int Js.readonly_prop
-      method ch: int Js.optdef Js.readonly_prop
+      method line: int Js.prop
+      method ch: int Js.opt Js.prop
     end
 
   let createLineCh line ch =
-    let open Js.Unsafe in
-    let ch = match ch with None -> inject Js.null | Some ch -> inject ch in
-    obj [|"line", inject line; "ch", ch|]
+    object%js
+      val mutable line = line
+      val mutable ch = ch
+    end
 
   class type markOptions =
     object
@@ -118,6 +120,7 @@ end = struct
       method on: string -> (unit -> unit) Js.callback -> unit Js.meth
       method off: string -> (unit -> unit) Js.callback -> unit Js.meth
       method markText: lineCh Js.t -> lineCh Js.t -> markOptions Js.t -> textMarker Js.t Js.meth
+      method scrollIntoView: _ Js.t -> unit Js.meth
     end
 
   let createCodeMirror ?lineNumbers ?readOnly ?mode ?value ?lineWrapping node =
@@ -152,11 +155,53 @@ let () =
   let output_elt = Dom_html.getElementById "right" in
   let output_elt = CodeMirror.createCodeMirror ~lineNumbers:true ~mode:"text/x-gas" ~readOnly:true output_elt in
   let lastMarks = ref [] in
+  let lastMarksSource = ref None in
+  let cursorActivitySource () =
+    List.iter (fun mark -> mark##clear) !lastMarks;
+    opt_iter (fun mark -> mark##clear) !lastMarksSource;
+    let curs = input_elt##getCursor in
+    let ch =
+      match Js.Opt.to_option curs##.ch with
+      | None -> "null"
+      | Some ch -> string_of_int ch
+    in
+    Printf.ksprintf prerr_endline "cursorActivitySource (line=%d, ch=%s)" curs##.line ch;
+    let n = curs##.line in
+    logf "LINE: %d" n;
+    let lines = try Hashtbl.find src2asm n with Not_found -> [] in
+    lastMarks := List.map (fun line ->
+        output_elt##markText
+          (CodeMirror.createLineCh line (Js.Opt.return 0))
+          (CodeMirror.createLineCh line Js.null)
+          (CodeMirror.createMarkOptions ~className:"foo" ())) lines;
+    lastMarksSource := Some (input_elt##markText
+                               (CodeMirror.createLineCh n (Js.Opt.return 0))
+                               (CodeMirror.createLineCh n Js.null)
+                               (CodeMirror.createMarkOptions ~className:"foo" ()));
+    let fst_line = List.fold_left min max_int lines in
+    if fst_line < max_int then
+      let pos =
+        object%js
+          val from =
+            object%js
+              val line = List.fold_left min max_int lines
+              val ch = Js.Opt.return 0
+            end
+          val _to =
+            object%js
+              val line = List.fold_left max 0 lines
+              val ch = Js.null
+            end
+        end
+      in
+      output_elt##scrollIntoView pos
+  in
   let cursorActivity () =
     List.iter (fun mark -> mark##clear) !lastMarks;
+    opt_iter (fun mark -> mark##clear) !lastMarksSource;
     let curs = output_elt##getCursor in
     let ch =
-      match Js.Optdef.to_option curs##.ch with
+      match Js.Opt.to_option curs##.ch with
       | None -> "null"
       | Some ch -> string_of_int ch
     in
@@ -168,16 +213,17 @@ let () =
         let lines = try Hashtbl.find src2asm n with Not_found -> [] in
         lastMarks := List.map (fun line ->
             output_elt##markText
-              (CodeMirror.createLineCh line (Some 0))
-              (CodeMirror.createLineCh line None)
+              (CodeMirror.createLineCh line (Js.Opt.return 0))
+              (CodeMirror.createLineCh line Js.null)
               (CodeMirror.createMarkOptions ~className:"foo" ())) lines;
-        lastMarks := input_elt##markText
-            (CodeMirror.createLineCh n (Some 0))
-            (CodeMirror.createLineCh n None)
-            (CodeMirror.createMarkOptions ~className:"foo" ()) :: !lastMarks
+        lastMarksSource := Some (input_elt##markText
+                                   (CodeMirror.createLineCh n (Js.Opt.return 0))
+                                   (CodeMirror.createLineCh n Js.null)
+                                   (CodeMirror.createMarkOptions ~className:"foo" ()))
     | exception Not_found ->
         ()
   in
+  input_elt##on "cursorActivity" (Js.wrap_callback cursorActivitySource);
   output_elt##on "cursorActivity" (Js.wrap_callback cursorActivity);
   let compile_btn = Dom_html.getElementById "compile_btn" in
   let onclick _ =
