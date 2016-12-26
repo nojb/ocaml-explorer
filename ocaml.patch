@@ -66,7 +66,7 @@ index 85b4cee..90df224 100644
          )
      else
 diff --git a/asmcomp/x86_gas.ml b/asmcomp/x86_gas.ml
-index f905dc3..f7a58a1 100644
+index f905dc3..46babb0 100644
 --- a/asmcomp/x86_gas.ml
 +++ b/asmcomp/x86_gas.ml
 @@ -298,14 +298,25 @@ let print_line b = function
@@ -86,29 +86,33 @@ index f905dc3..f7a58a1 100644
 +  end;
    List.iter
 -    (fun i ->
-+    (fun (n, i) ->
-        Buffer.clear b;
-        print_line b i;
-        Buffer.add_char b '\n';
+-       Buffer.clear b;
+-       print_line b i;
+-       Buffer.add_char b '\n';
 -       Buffer.output_buffer oc b;
++    (fun (n, i) ->
 +       match !asm_line_callback with
 +       | Some f ->
-+           f n (Buffer.contents b)
++           f n i
 +       | None ->
++           Buffer.clear b;
++           print_line b i;
++           Buffer.add_char b '\n';
 +           Buffer.output_buffer oc b
      )
      lines
 diff --git a/asmcomp/x86_gas.mli b/asmcomp/x86_gas.mli
-index 3c3a4ae..978049d 100644
+index 3c3a4ae..5d7eba7 100644
 --- a/asmcomp/x86_gas.mli
 +++ b/asmcomp/x86_gas.mli
-@@ -15,4 +15,6 @@
+@@ -15,4 +15,7 @@
  
  (** Emit assembly instructions for gas. *)
  
 -val generate_asm: out_channel -> X86_ast.asm_line list -> unit
-+val asm_line_callback: (int option -> string -> unit) option ref
++val asm_line_callback: (int option -> X86_ast.asm_line -> unit) option ref
 +
++val print_line: Buffer.t -> X86_ast.asm_line -> unit
 +val generate_asm: out_channel -> (int option * X86_ast.asm_line) list -> unit
 diff --git a/asmcomp/x86_proc.ml b/asmcomp/x86_proc.ml
 index 30b77af..f83d1dc 100644
@@ -161,3 +165,27 @@ index 388420b..c709fd2 100644
    (** Post-process the stream of instructions.  Dump it (using
        the provided syntax emitter) in a file (if provided) and
        compile it with an internal assembler (if registered
+diff --git a/middle_end/debuginfo.ml b/middle_end/debuginfo.ml
+index a93f425..047dbd4 100644
+--- a/middle_end/debuginfo.ml
++++ b/middle_end/debuginfo.ml
+@@ -94,3 +94,8 @@ let compare dbg1 dbg2 =
+       loop ds1 ds2
+   in
+   loop (List.rev dbg1) (List.rev dbg2)
++
++(** OCAML-EXPLORER *)
++let to_line = function
++  | [] -> None
++  | {dinfo_line; _} :: _ -> Some dinfo_line
+diff --git a/middle_end/debuginfo.mli b/middle_end/debuginfo.mli
+index 993928c..d14bdd2 100644
+--- a/middle_end/debuginfo.mli
++++ b/middle_end/debuginfo.mli
+@@ -37,3 +37,6 @@ val concat: t -> t -> t
+ val inline: Location.t -> t -> t
+ 
+ val compare : t -> t -> int
++
++(** OCAML-EXPLORER *)
++val to_line : t -> int option

@@ -34,6 +34,6 @@ stdlib.cmis.js:
 	$(JSOO_MKCMIS) -prefix /cmis $(OCAML_SRCDIR)/stdlib/stdlib.cma -o $@
 
 clean:
-	$(RM) *.cm* *.byte jsdriver.js *.annot *.map
+	$(RM) *.cm* *.byte jsdriver.js stdlib.cmis.js *.annot *.map
 
-.PHONY: reload clean stdlib.cmis.js
+.PHONY: clean stdlib.cmis.js

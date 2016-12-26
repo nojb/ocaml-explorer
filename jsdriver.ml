@@ -66,18 +66,19 @@ let compile asmcm s =
   in
   f ~name ~content;
   let b = Buffer.create 10000 in
-  let i = ref (-1) in
-  let out n l =
-    incr i;
+  let k = ref (-1) in
+  let out n i =
+    incr k;
     begin match n with
     | None -> ()
     | Some n ->
         let n = n - 1 in (* zero-based *)
-        Hashtbl.replace asm2ml !i n;
+        Hashtbl.replace asm2ml !k n;
         let ii = try Hashtbl.find ml2asm n with Not_found -> [] in
-        Hashtbl.replace ml2asm n (!i :: ii)
+        Hashtbl.replace ml2asm n (!k :: ii)
     end;
-    Buffer.add_string b l
+    X86_gas.print_line b i;
+    Buffer.add_char b '\n'
   in
   X86_gas.asm_line_callback := Some out;
   JsooOpt.compile "main.ml";
