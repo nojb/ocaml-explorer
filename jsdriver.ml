@@ -67,20 +67,23 @@ let compile asmcm s =
   f ~name ~content;
   let b = Buffer.create 10000 in
   let k = ref (-1) in
-  let out n i =
-    incr k;
-    begin match n with
-    | None -> ()
-    | Some n ->
-        let n = n - 1 in (* zero-based *)
-        Hashtbl.replace asm2ml !k n;
-        let ii = try Hashtbl.find ml2asm n with Not_found -> [] in
-        Hashtbl.replace ml2asm n (!k :: ii)
-    end;
-    X86_gas.print_line b i;
-    Buffer.add_char b '\n'
+  let handler print_line asm =
+    let aux (n, i) =
+      incr k;
+      begin match n with
+      | None -> ()
+      | Some n ->
+          let n = n - 1 in (* zero-based *)
+          Hashtbl.replace asm2ml !k n;
+          let ii = try Hashtbl.find ml2asm n with Not_found -> [] in
+          Hashtbl.replace ml2asm n (!k :: ii)
+      end;
+      print_line b i;
+      Buffer.add_char b '\n'
+    in
+    List.iter aux asm
   in
-  X86_gas.asm_line_callback := Some out;
+  Emitaux.asm_handler := Some handler;
   JsooOpt.compile "main.ml";
   let s = Buffer.contents b in
   asmcm##setValue (Js.string s)

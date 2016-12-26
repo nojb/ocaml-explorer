@@ -34,86 +34,93 @@ index 4513260..4bfd8ad 100644
  asmcomp/emitaux.cmo : middle_end/debuginfo.cmi utils/config.cmi \
      asmcomp/cmm.cmi utils/clflags.cmi asmcomp/arch.cmo asmcomp/emitaux.cmi
 diff --git a/asmcomp/amd64/emit.mlp b/asmcomp/amd64/emit.mlp
-index 85b4cee..90df224 100644
+index 85b4cee..a60b1c1 100644
 --- a/asmcomp/amd64/emit.mlp
 +++ b/asmcomp/amd64/emit.mlp
-@@ -484,6 +484,10 @@ let tailrec_entry_point = ref 0
+@@ -484,6 +484,8 @@ let tailrec_entry_point = ref 0
  
  (* Emit an instruction *)
  let emit_instr fallthrough i =
-+  begin match i.dbg with
-+  | [] -> ()
-+  | {Debuginfo.dinfo_line; _} :: _ -> sourceline (Some dinfo_line)
-+  end;
++  if Debuginfo.to_line i.dbg <> None then
++    sourceline (Debuginfo.to_line i.dbg);
    emit_debug_info i.dbg;
    match i.desc with
    | Lend -> ()
-@@ -929,6 +933,7 @@ let fundecl fundecl =
+@@ -892,6 +894,7 @@ let all_functions = ref []
+ (* Emission of a function declaration *)
+ 
+ let fundecl fundecl =
++  sourceline (Debuginfo.to_line fundecl.fun_dbg);
+   function_name := fundecl.fun_name;
+   fastcode_flag := fundecl.fun_fast;
+   tailrec_entry_point := new_label();
+@@ -929,6 +932,7 @@ let fundecl fundecl =
    end;
    def_label !tailrec_entry_point;
    emit_all true fundecl.fun_body;
-+  sourceline None;
++  sourceline (Debuginfo.to_line fundecl.fun_dbg);
    List.iter emit_call_gc !call_gc_sites;
    emit_call_bound_errors ();
    if frame_required() then begin
-@@ -1127,7 +1132,7 @@ let end_assembly() =
+@@ -1124,11 +1128,16 @@ let end_assembly() =
+   end;
+ 
+   let asm =
++    match !Emitaux.asm_handler with
++    | Some f ->
++        if X86_proc.masm then Some (f X86_masm.print_line)
++        else Some (f X86_gas.print_line)
++    | None ->
      if !Emitaux.create_asm_file then
        Some
-         (
+-        (
 -         (if X86_proc.masm then X86_masm.generate_asm
-+          (if X86_proc.masm then assert false (* X86_masm.generate_asm *)
-           else X86_gas.generate_asm) !Emitaux.output_channel
+-          else X86_gas.generate_asm) !Emitaux.output_channel
++        (fun asm ->
++          (if X86_proc.masm then X86_masm.generate_asm
++          else X86_gas.generate_asm) !Emitaux.output_channel (List.map snd asm)
          )
      else
-diff --git a/asmcomp/x86_gas.ml b/asmcomp/x86_gas.ml
-index f905dc3..46babb0 100644
---- a/asmcomp/x86_gas.ml
-+++ b/asmcomp/x86_gas.ml
-@@ -298,14 +298,25 @@ let print_line b = function
-   | Model _
-     -> assert false
+       None
+diff --git a/asmcomp/emitaux.ml b/asmcomp/emitaux.ml
+index 1149814..4359ba1 100644
+--- a/asmcomp/emitaux.ml
++++ b/asmcomp/emitaux.ml
+@@ -294,3 +294,4 @@ let reset () =
  
-+let asm_line_callback = ref None
+ let binary_backend_available = ref false
+ let create_asm_file = ref true
++let asm_handler = ref None
+diff --git a/asmcomp/emitaux.mli b/asmcomp/emitaux.mli
+index 1e4addd..768bcae 100644
+--- a/asmcomp/emitaux.mli
++++ b/asmcomp/emitaux.mli
+@@ -75,3 +75,5 @@ val binary_backend_available: bool ref
+ 
+ val create_asm_file: bool ref
+     (** Are we actually generating the textual assembly file? *)
 +
- let generate_asm oc lines =
-   let b = Buffer.create 10000 in
--  output_string oc "\t.file \"\"\n"; (* PR#7037 *)
-+  begin match !asm_line_callback with
-+  | Some _ ->
-+      ()
-+  | None ->
-+      output_string oc "\t.file \"\"\n"; (* PR#7037 *)
-+  end;
-   List.iter
--    (fun i ->
--       Buffer.clear b;
--       print_line b i;
--       Buffer.add_char b '\n';
--       Buffer.output_buffer oc b;
-+    (fun (n, i) ->
-+       match !asm_line_callback with
-+       | Some f ->
-+           f n i
-+       | None ->
-+           Buffer.clear b;
-+           print_line b i;
-+           Buffer.add_char b '\n';
-+           Buffer.output_buffer oc b
-     )
-     lines
++val asm_handler: ((Buffer.t -> X86_ast.asm_line -> unit) -> (int option * X86_ast.asm_line) list -> unit) option ref
 diff --git a/asmcomp/x86_gas.mli b/asmcomp/x86_gas.mli
-index 3c3a4ae..5d7eba7 100644
+index 3c3a4ae..bf63a58 100644
 --- a/asmcomp/x86_gas.mli
 +++ b/asmcomp/x86_gas.mli
-@@ -15,4 +15,7 @@
+@@ -15,4 +15,5 @@
  
  (** Emit assembly instructions for gas. *)
  
--val generate_asm: out_channel -> X86_ast.asm_line list -> unit
-+val asm_line_callback: (int option -> X86_ast.asm_line -> unit) option ref
-+
 +val print_line: Buffer.t -> X86_ast.asm_line -> unit
-+val generate_asm: out_channel -> (int option * X86_ast.asm_line) list -> unit
+ val generate_asm: out_channel -> X86_ast.asm_line list -> unit
+diff --git a/asmcomp/x86_masm.mli b/asmcomp/x86_masm.mli
+index 9027fe6..7e47c15 100644
+--- a/asmcomp/x86_masm.mli
++++ b/asmcomp/x86_masm.mli
+@@ -15,4 +15,5 @@
+ 
+ (** Emit assembly instructions for MASM (Intel syntax). *)
+ 
++val print_line: Buffer.t -> X86_ast.asm_line -> unit
+ val generate_asm: out_channel -> X86_ast.asm_line list -> unit
 diff --git a/asmcomp/x86_proc.ml b/asmcomp/x86_proc.ml
 index 30b77af..f83d1dc 100644
 --- a/asmcomp/x86_proc.ml
