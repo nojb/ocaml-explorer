@@ -96,20 +96,27 @@ let () =
   Printf.printf \"RESULT = %d\\n%!\" (eval (Add (Int 17, Div (Int 19, Int 3))))
 "
 
+let codeMirror ?mode ?value ?readOnly div =
+  let open Dom_html in
+  let cm =
+    Codemirror.createCodeMirror ~lineNumbers:true ?mode ?value ?readOnly ~lineWrapping:true div
+  in
+  let resize _ =
+    prerr_endline "resize";
+    Js._false
+  in
+  ignore (addEventListener window Event.resize (handler resize) Js._false);
+  cm
+
 let () =
   let mldiv = Dom_html.getElementById "left" in
-  let mlcm = Codemirror.createCodeMirror ~lineNumbers:true ~mode:"text/x-ocaml" ~value ~lineWrapping:true mldiv in
+  let mlcm = codeMirror ~mode:"text/x-ocaml" ~value mldiv in
   let asmdiv = Dom_html.getElementById "right" in
-  let asmcm = Codemirror.createCodeMirror ~lineNumbers:true ~mode:"text/x-gas" ~readOnly:true asmdiv in
-  (* let resize cm = *)
-  (*   cm##setSize Js.null (Js.Opt.return (Printf.ksprintf Js.string "%dpx" (div ##. offsetHeight))); *)
-  (*   Js._false *)
-  (* in *)
-  (* let _ = Dom_html.addEventListener asmdiv Dom_html.Event.resize (Dom_html.handler resize) Js._false in *)
-  (* let _ = Dom_html.addEventListener mldiv Dom_html.Event.resize (Dom_html.handler resize) Js._false in *)
+  let asmcm = codeMirror ~mode:"text/x-gas" ~readOnly:true asmdiv in
   let lastMarks = ref [] in
+  let clearMarks () = List.iter (fun mark -> mark#clear) !lastMarks in
   let cursorActivitySource () =
-    List.iter (fun mark -> mark#clear) !lastMarks;
+    clearMarks ();
     let n = mlcm##getCursor##.line in
     let lines = try Hashtbl.find ml2asm n with Not_found -> [] in
     lastMarks :=
@@ -118,22 +125,14 @@ let () =
     if lines <> [] then
       let pos =
         object%js
-          val from =
-            object%js
-              val line = List.fold_left min max_int lines
-              val ch = Js.Opt.return 0
-            end
-          val _to =
-            object%js
-              val line = List.fold_left max 0 lines
-              val ch = Js.null
-            end
+          val from = Codemirror.createLineCh (List.fold_left min max_int lines) (Js.Opt.return 0)
+          val _to = Codemirror.createLineCh (List.fold_left max 0 lines) Js.null
         end
       in
       asmcm##scrollIntoView pos
   in
   let cursorActivity () =
-    List.iter (fun mark -> mark#clear) !lastMarks;
+    clearMarks ();
     let line = asmcm##getCursor##.line in
     match Hashtbl.find asm2ml line with
     | n ->
