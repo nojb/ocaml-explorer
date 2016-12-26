@@ -186,9 +186,3 @@ let () =
   mlcm##on "cursorActivity" (Js.wrap_callback cursorActivitySource);
   mlcm##on "changes" (Js.wrap_callback changes);
   asmcm##on "cursorActivity" (Js.wrap_callback cursorActivity)
-  (* let compilebut = Dom_html.getElementById "compile_btn" in *)
-  (* let onclick _ = *)
-  (*   compile asmcm mlcm##getValue; *)
-  (*   Js.bool false *)
-  (* in *)
-  (* compilebut##.onclick := Dom.handler onclick *)
