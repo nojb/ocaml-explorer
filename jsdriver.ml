@@ -81,7 +81,9 @@ let compile asmcm s =
       print_line b i;
       Buffer.add_char b '\n'
     in
-    List.iter aux asm
+    List.iter (function
+        | (_, (X86_ast.Ins _ | X86_ast.NewLabel _)) as arg -> aux arg
+        | _ -> ()) asm
   in
   Emitaux.asm_handler := Some handler;
   JsooOpt.compile "main.ml";
