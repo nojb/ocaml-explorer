@@ -236,59 +236,12 @@ let compile name =
     readenv ppf Before_args;
     anonymous name;
     Arg.parse (Arch.command_line_options @ Options.list) anonymous usage;
-    begin try Compenv.process_deferred_actions
+    Compenv.process_deferred_actions
       (ppf,
        Optcompile.implementation ~backend,
        Optcompile.interface,
        ".cmx",
        ".cmxa");
-    with e -> prerr_endline (Printexc.to_string e) end;
-    readenv ppf Before_link;
-    if
-      List.length (List.filter (fun x -> !x)
-                     [make_package; make_archive; shared;
-                      compile_only; output_c_object]) > 1
-    then
-      fatal "Please specify at most one of -pack, -a, -shared, -c, -output-obj";
-    if !make_archive then begin
-      Compmisc.init_path true;
-      let target = extract_output !output_name in
-      Asmlibrarian.create_archive (get_objfiles ~with_ocamlparam:false) target;
-      Warnings.check_fatal ();
-    end
-    else if !make_package then begin
-      Compmisc.init_path true;
-      let target = extract_output !output_name in
-      Asmpackager.package_files ppf (Compmisc.initial_env ())
-        (get_objfiles ~with_ocamlparam:false) target ~backend;
-      Warnings.check_fatal ();
-    end
-    else if !shared then begin
-      Compmisc.init_path true;
-      let target = extract_output !output_name in
-      Asmlink.link_shared ppf (get_objfiles ~with_ocamlparam:false) target;
-      Warnings.check_fatal ();
-    end
-    else if not !compile_only && !objfiles <> [] then begin
-      let target =
-        if !output_c_object then
-          let s = extract_output !output_name in
-          if (Filename.check_suffix s Config.ext_obj
-            || Filename.check_suffix s Config.ext_dll)
-          then s
-          else
-            fatal
-              (Printf.sprintf
-                 "The extension of the output file must be %s or %s"
-                 Config.ext_obj Config.ext_dll
-              )
-        else
-          default_output !output_name
-      in
-      Compmisc.init_path true;
-      Asmlink.link ppf (get_objfiles ~with_ocamlparam:true) target;
-      Warnings.check_fatal ();
-    end
   with x ->
     Location.report_exception ppf x
       (* exit 2 *)
