@@ -80,7 +80,7 @@ let compile asmcm s =
     Buffer.add_string b l
   in
   X86_gas.asm_line_callback := Some out;
-  Optmain.compile "main.ml";
+  JsooOpt.compile "main.ml";
   let s = Buffer.contents b in
   asmcm##setValue (Js.string s)
 
