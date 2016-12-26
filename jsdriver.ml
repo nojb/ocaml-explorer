@@ -169,11 +169,26 @@ let () =
     | exception Not_found ->
         ()
   in
-  mlcm##on "cursorActivity" (Js.wrap_callback cursorActivitySource);
-  asmcm##on "cursorActivity" (Js.wrap_callback cursorActivity);
-  let compilebut = Dom_html.getElementById "compile_btn" in
-  let onclick _ =
-    compile asmcm mlcm##getValue;
-    Js.bool false
+  let last_timeout_id = ref None in
+  let eps = 1. (* seconds *) in
+  let trycompile () =
+    last_timeout_id := None;
+    compile asmcm mlcm##getValue
   in
-  compilebut##.onclick := Dom.handler onclick
+  let changes _ _ =
+    begin match !last_timeout_id with
+    | None -> ()
+    | Some id -> Dom_html.window##clearTimeout id
+    end;
+    last_timeout_id :=
+      Some (Dom_html.window##setTimeout (Js.wrap_callback trycompile) (eps *. 1000.))
+  in
+  mlcm##on "cursorActivity" (Js.wrap_callback cursorActivitySource);
+  mlcm##on "changes" (Js.wrap_callback changes);
+  asmcm##on "cursorActivity" (Js.wrap_callback cursorActivity)
+  (* let compilebut = Dom_html.getElementById "compile_btn" in *)
+  (* let onclick _ = *)
+  (*   compile asmcm mlcm##getValue; *)
+  (*   Js.bool false *)
+  (* in *)
+  (* compilebut##.onclick := Dom.handler onclick *)

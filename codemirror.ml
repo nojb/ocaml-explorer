@@ -36,8 +36,8 @@ class type codeMirror =
     method getValue: Js.js_string Js.t Js.meth
     method setValue: Js.js_string Js.t -> unit Js.meth
     method getCursor: lineCh Js.t Js.meth
-    method on: string -> (unit -> unit) Js.callback -> unit Js.meth
-    method off: string -> (unit -> unit) Js.callback -> unit Js.meth
+    method on: string -> _ Js.callback -> unit Js.meth
+    method off: string -> _ Js.callback -> unit Js.meth
     method markText: lineCh Js.t -> lineCh Js.t -> markOptions Js.t -> textMarker Js.t Js.meth
     method scrollIntoView: _ Js.t -> unit Js.meth
     method addLineClass: int -> Js.js_string Js.t -> Js.js_string Js.t -> unit Js.meth
