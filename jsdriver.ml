@@ -53,6 +53,10 @@ let asm2ml : (int, int) Hashtbl.t  = Hashtbl.create 0
 
 let first = ref true
 
+let () =
+  Clflags.dlcode := false;
+  Clflags.pic_code := false
+
 let compile asmcm s =
   Hashtbl.clear ml2asm;
   Hashtbl.clear asm2ml;
