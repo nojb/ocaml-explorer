@@ -101,8 +101,9 @@ let codeMirror ?mode ?value ?readOnly div =
   let cm =
     Codemirror.createCodeMirror ~lineNumbers:true ?mode ?value ?readOnly ~lineWrapping:true div
   in
+  let style = window##getComputedStyle div in
   let resize _ =
-    prerr_endline "resize";
+    cm##setSize (Js.Opt.return style##.width) (Js.Opt.return style##.height);
     Js._false
   in
   ignore (addEventListener window Event.resize (handler resize) Js._false);
