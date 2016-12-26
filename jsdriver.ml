@@ -57,13 +57,46 @@ let () =
   Clflags.dlcode := false;
   Clflags.pic_code := false
 
+let codeMirror ?mode ?value ?readOnly div =
+  let open Dom_html in
+  let cm =
+    Codemirror.createCodeMirror ~lineNumbers:true ?mode ?value ?readOnly ~lineWrapping:true div
+  in
+  let style = window##getComputedStyle div in
+  let resize _ =
+    cm##setSize (Js.Opt.return style##.width) (Js.Opt.return style##.height);
+    Js._false
+  in
+  ignore (addEventListener window Event.resize (handler resize) Js._false);
+  cm
+
+let value =
+  "type t = Add of t * t | Div of t * t | Int of int
+
+let rec eval = function
+  | Add (e1, e2) -> eval e1 + eval e2
+  | Div (e1, e2) -> eval e1 / eval e2
+  | Int n -> n
+
+let () =
+  Printf.printf \"RESULT = %d\\n%!\" (eval (Add (Int 17, Div (Int 19, Int 3))))
+"
+
+let mlcm =
+  let mldiv = Dom_html.getElementById "left" in
+  codeMirror ~mode:"text/x-ocaml" ~value mldiv
+
+let asmcm =
+  let asmdiv = Dom_html.getElementById "right" in
+  codeMirror ~mode:"text/x-gas" ~readOnly:true asmdiv
+
 let last_asm = ref []
 
 let syntax : [`Masm | `Gas] ref = ref `Masm
 
 let b = Buffer.create 10000
 
-let refresh cm =
+let refresh () =
   let k = ref (-1) in
   Buffer.clear b;
   let aux (n, i) =
@@ -88,9 +121,9 @@ let refresh cm =
       | (_, (X86_ast.Ins _ | X86_ast.NewLabel _)) as arg -> aux arg
       | _ -> ()) !last_asm;
   let s = Buffer.contents b in
-  cm##setValue (Js.string s)
+  asmcm##setValue (Js.string s)
 
-let compile cm s =
+let compile s =
   Hashtbl.clear ml2asm;
   Hashtbl.clear asm2ml;
   let name = "main.ml" in
@@ -104,41 +137,12 @@ let compile cm s =
   f ~name ~content;
   let handler asm =
     last_asm := asm;
-    refresh cm;
+    refresh ();
   in
   Emitaux.asm_handler := Some handler;
   JsooOpt.compile "main.ml"
 
-let value =
-  "type t = Add of t * t | Div of t * t | Int of int
-
-let rec eval = function
-  | Add (e1, e2) -> eval e1 + eval e2
-  | Div (e1, e2) -> eval e1 / eval e2
-  | Int n -> n
-
 let () =
-  Printf.printf \"RESULT = %d\\n%!\" (eval (Add (Int 17, Div (Int 19, Int 3))))
-"
-
-let codeMirror ?mode ?value ?readOnly div =
-  let open Dom_html in
-  let cm =
-    Codemirror.createCodeMirror ~lineNumbers:true ?mode ?value ?readOnly ~lineWrapping:true div
-  in
-  let style = window##getComputedStyle div in
-  let resize _ =
-    cm##setSize (Js.Opt.return style##.width) (Js.Opt.return style##.height);
-    Js._false
-  in
-  ignore (addEventListener window Event.resize (handler resize) Js._false);
-  cm
-
-let () =
-  let mldiv = Dom_html.getElementById "left" in
-  let mlcm = codeMirror ~mode:"text/x-ocaml" ~value mldiv in
-  let asmdiv = Dom_html.getElementById "right" in
-  let asmcm = codeMirror ~mode:"text/x-gas" ~readOnly:true asmdiv in
   let lastMarks = ref [] in
   let clearMarks () = List.iter (fun mark -> mark#clear) !lastMarks in
   let cursorActivitySource () =
@@ -173,7 +177,7 @@ let () =
   let eps = 1. (* seconds *) in
   let trycompile () =
     last_timeout_id := None;
-    compile asmcm mlcm##getValue
+    compile mlcm##getValue
   in
   let changes _ _ =
     begin match !last_timeout_id with
@@ -193,7 +197,7 @@ let () =
       | _ -> assert false
     in
     syntax := r;
-    refresh asmcm;
+    refresh ();
     Js._true
   in
   ignore (Dom_html.addEventListener selectsyntax Dom_html.Event.change (Dom_html.handler change) Js._false);
