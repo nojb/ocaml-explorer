@@ -50,8 +50,7 @@ let asm2ml : (int, int) Hashtbl.t  = Hashtbl.create 0
 let first = ref true
 
 let () =
-  Clflags.dlcode := false;
-  Clflags.pic_code := false
+  Clflags.dlcode := false
 
 let codeMirror ?mode ?value ?readOnly div =
   let open Dom_html in
@@ -148,51 +147,60 @@ let picinput =
   Js.coerce (Dom_html.getElementById "pic") Dom_html.CoerceTo.input (fun _ -> assert false)
 
 let () =
+  let upd () = Clflags.pic_code := Js.to_bool picinput##.checked in
   let h _ =
-    Clflags.pic_code := Js.to_bool picinput##.checked;
+    upd ();
     compile mlcm##getValue;
     Js._true
   in
+  upd ();
   picinput##.onchange := Dom_html.handler h
 
 let flambdainput =
   Js.coerce (Dom_html.getElementById "flambda") Dom_html.CoerceTo.input (fun _ -> assert false)
 
 let () =
+  let upd () = Config.flambda := Js.to_bool flambdainput##.checked in
   let h _ =
-    Config.flambda := Js.to_bool flambdainput##.checked;
+    upd ();
     compile mlcm##getValue;
     Js._true
   in
+  upd ();
   flambdainput##.onchange := Dom_html.handler h
 
 let directivesinput =
   Js.coerce (Dom_html.getElementById "directives") Dom_html.CoerceTo.input (fun _ -> assert false)
 
 let () =
+  let upd () = show_directives := Js.to_bool directivesinput##.checked in
   let h _ =
-    show_directives := Js.to_bool directivesinput##.checked;
+    upd ();
     refresh ();
     Js._true
   in
+  upd ();
   directivesinput##.onchange := Dom_html.handler h
 
 let selectsyntax =
   Js.coerce (Dom_html.getElementById "syntax") Dom_html.CoerceTo.select (fun _ -> assert false)
 
 let () =
-  let h _  =
-    prerr_endline (Js.to_string selectsyntax##.value);
+  let upd () =
     let r =
       match Js.to_string selectsyntax##.value with
       | "masm" -> `Masm
       | "gas" -> `Gas
       | _ -> assert false
     in
-    syntax := r;
+    syntax := r
+  in
+  let h _  =
+    upd ();
     refresh ();
     Js._true
   in
+  upd ();
   selectsyntax##.onchange := Dom_html.handler h
 
 let () =
@@ -242,4 +250,5 @@ let () =
   in
   mlcm##on "cursorActivity" (Js.wrap_callback cursorActivitySource);
   mlcm##on "changes" (Js.wrap_callback changes);
-  asmcm##on "cursorActivity" (Js.wrap_callback cursorActivity)
+  asmcm##on "cursorActivity" (Js.wrap_callback cursorActivity);
+  compile mlcm##getValue
