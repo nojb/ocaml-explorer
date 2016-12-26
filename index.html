@@ -7,56 +7,67 @@
     <script type="text/javascript" src="gas.js"></script>
     <link rel="stylesheet" href="codemirror.css">
     <style>
-body {
-  margin:0;     /* This is used to reset any browser-default margins */
-  height:100vh; /* This is needed to overcome a Chrome bug. */
-  width:100vw;  /* As above. */
+
+* {
+  /* outline: green dotted; */
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  height: 100vh;
+  width: 100vw;
+}
+
+.table {
+  table-layout: fixed;
+  display: table;
+  width: 100%;
+  height: 100%;
 }
 
 #console {
+  display: table-row;
   color: red;
+  white-space: pre;
   font-family: monospace;
+  height: 10em;
 }
 
-.container {
-  position: relative;
+.cell {
+  display: table-cell;
+}
+
+.row {
+  display: table-row;
   width: 100%;
-  height: 80%;
-}
-
-.panel {
-  position: absolute;
-  height: 100%;
-  width: 50%;
+  height: 0;
 }
 
 .foo {
   background-color: #FFD1DC;
 }
 
-#left {
-}
-
-#right {
-  position: absolute;
-  left: 50%;
-}
 .cm-s-default {
   height: 100%;
 }
     </style>
   </head>
   <body>
-    <h1>OCaml Explorer</h1>
-    <div id="console">
+    <div class="table" id="content">
+      <div class="row"><h1>OCaml Explorer</h1></div>
+      <div class="table">
+        <div class="table">
+          <div id="left" class="cell"></div>
+          <div id="right" class="cell"></div>
+        </div>
+      </div>
+      <button class="row" id="compile_btn" type="button">Compile!</button>
+      <div class="row" id="console"></div>
     </div>
-    <section class="container">
-      <div id="left" class="panel"></div>
-      <div id="right" class="panel"></div>
-    </section>
-    <div>
-      <button id="compile_btn" type="button">Compile!</button>
-    </div>
+    <a href="https://github.com/nojb/ocaml-explorer">
+      <img style="position: absolute; top: 0; right: 0; border: 0;" src="https://camo.githubusercontent.com/365986a132ccd6a44c23a9169022c0b5c890c387/68747470733a2f2f73332e616d617a6f6e6177732e636f6d2f6769746875622f726962626f6e732f666f726b6d655f72696768745f7265645f6161303030302e706e67" alt="Fork me on GitHub" data-canonical-src="https://s3.amazonaws.com/github/ribbons/forkme_right_red_aa0000.png">
+    </a>
   </body>
   <script type="text/javascript" src="jsdriver.js"></script>
   <script type="text/javascript" src="stdlib.cmis.js"></script>
