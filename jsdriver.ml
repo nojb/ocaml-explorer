@@ -154,6 +154,14 @@ let () =
 let flambdainput =
   Js.coerce (Dom_html.getElementById "flambda") Dom_html.CoerceTo.input (fun _ -> assert false)
 
+let () =
+  let h _ =
+    Config.flambda := Js.to_bool flambdainput##.checked;
+    compile mlcm##getValue;
+    Js._true
+  in
+  flambdainput##.onchange := Dom_html.handler h
+
 let selectsyntax =
   Js.coerce (Dom_html.getElementById "syntax") Dom_html.CoerceTo.select (fun _ -> assert false)
 

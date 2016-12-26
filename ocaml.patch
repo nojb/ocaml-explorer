@@ -143,6 +143,133 @@ index 92f68b5..969a74b 100644
      num_available_registers.(0) <- 12
    end else
      num_available_registers.(0) <- 13
+diff --git a/asmcomp/asmlibrarian.ml b/asmcomp/asmlibrarian.ml
+index ca3f574..a6c8734 100644
+--- a/asmcomp/asmlibrarian.ml
++++ b/asmcomp/asmlibrarian.ml
+@@ -26,7 +26,7 @@ type error =
+ exception Error of error
+ 
+ let default_ui_export_info =
+-  if Config.flambda then
++  if !Config.flambda then
+     Cmx_format.Flambda Export_info.empty
+   else
+     Cmx_format.Clambda Clambda.Value_unknown
+diff --git a/asmcomp/asmpackager.ml b/asmcomp/asmpackager.ml
+index 6f0db06..bcf8f30 100644
+--- a/asmcomp/asmpackager.ml
++++ b/asmcomp/asmpackager.ml
+@@ -98,7 +98,7 @@ let make_package_object ppf members targetobj targetname coercion
+   let module_ident = Ident.create_persistent targetname in
+   let source_provenance = Timings.Pack targetname in
+   let prefixname = Filename.remove_extension objtemp in
+-  if Config.flambda then begin
++  if !Config.flambda then begin
+     let size, lam = Translmod.transl_package_flambda components coercion in
+     let flam =
+       Middle_end.middle_end ppf
+@@ -133,13 +133,13 @@ let make_package_object ppf members targetobj targetname coercion
+ (* Make the .cmx file for the package *)
+ 
+ let get_export_info ui =
+-  assert(Config.flambda);
++  assert(!Config.flambda);
+   match ui.ui_export_info with
+   | Clambda _ -> assert false
+   | Flambda info -> info
+ 
+ let get_approx ui =
+-  assert(not Config.flambda);
++  assert(not !Config.flambda);
+   match ui.ui_export_info with
+   | Flambda _ -> assert false
+   | Clambda info -> info
+@@ -167,7 +167,7 @@ let build_package_cmx members cmxfile =
+            (Compilenv.unit_for_global unit_id) set)
+       Compilation_unit.Set.empty units in
+   let units =
+-    if Config.flambda then
++    if !Config.flambda then
+       List.map (fun info ->
+           { info with
+             ui_export_info =
+@@ -181,7 +181,7 @@ let build_package_cmx members cmxfile =
+   in
+   let ui = Compilenv.current_unit_infos() in
+   let ui_export_info =
+-    if Config.flambda then
++    if !Config.flambda then
+       let ui_export_info =
+         List.fold_left (fun acc info ->
+             Export_info.merge acc (get_export_info info))
+diff --git a/asmcomp/cmmgen.ml b/asmcomp/cmmgen.ml
+index fd21651..6dc7678 100644
+--- a/asmcomp/cmmgen.ml
++++ b/asmcomp/cmmgen.ml
+@@ -2515,7 +2515,7 @@ and transl_letrec env bindings cont =
+ 
+ let transl_function f =
+   let body =
+-    if Config.flambda then
++    if !Config.flambda then
+       Un_anf.apply f.body ~what:f.label
+     else
+       f.body
+@@ -2626,7 +2626,7 @@ and emit_boxed_int64_constant n cont =
+ 
+ let emit_constant_closure ((_, global_symb) as symb) fundecls clos_vars cont =
+   let closure_symbol f =
+-    if Config.flambda then
++    if !Config.flambda then
+       cdefine_symbol (f.label ^ "_closure", global_symb)
+     else
+       []
+diff --git a/asmcomp/compilenv.ml b/asmcomp/compilenv.ml
+index 9847cb9..5dc9826 100644
+--- a/asmcomp/compilenv.ml
++++ b/asmcomp/compilenv.ml
+@@ -71,7 +71,7 @@ let exported_constants = Hashtbl.create 17
+ let merged_environment = ref Export_info.empty
+ 
+ let default_ui_export_info =
+-  if Config.flambda then
++  if !Config.flambda then
+     Cmx_format.Flambda Export_info.empty
+   else
+     Cmx_format.Clambda Value_unknown
+@@ -233,7 +233,7 @@ let cache_unit_info ui =
+ (* Return the approximation of a global identifier *)
+ 
+ let get_clambda_approx ui =
+-  assert(not Config.flambda);
++  assert(not !Config.flambda);
+   match ui.ui_export_info with
+   | Flambda _ -> assert false
+   | Clambda approx -> approx
+@@ -291,19 +291,19 @@ let symbol_for_global' id =
+     Symbol.unsafe_create (unit_for_global id) sym_label
+ 
+ let set_global_approx approx =
+-  assert(not Config.flambda);
++  assert(not !Config.flambda);
+   current_unit.ui_export_info <- Clambda approx
+ 
+ (* Exporting and importing cross module information *)
+ 
+ let get_flambda_export_info ui =
+-  assert(Config.flambda);
++  assert(!Config.flambda);
+   match ui.ui_export_info with
+   | Clambda _ -> assert false
+   | Flambda ei -> ei
+ 
+ let set_export_info export_info =
+-  assert(Config.flambda);
++  assert(!Config.flambda);
+   current_unit.ui_export_info <- Flambda export_info
+ 
+ let approx_for_global comp_unit =
 diff --git a/asmcomp/emitaux.ml b/asmcomp/emitaux.ml
 index 1149814..4359ba1 100644
 --- a/asmcomp/emitaux.ml
@@ -233,6 +360,64 @@ index 388420b..c709fd2 100644
    (** Post-process the stream of instructions.  Dump it (using
        the provided syntax emitter) in a file (if provided) and
        compile it with an internal assembler (if registered
+diff --git a/bytecomp/translattribute.ml b/bytecomp/translattribute.ml
+index fae55cc..006445a 100644
+--- a/bytecomp/translattribute.ml
++++ b/bytecomp/translattribute.ml
+@@ -23,15 +23,15 @@ let is_inline_attribute = function
+ 
+ let is_inlined_attribute = function
+   | {txt=("inlined"|"ocaml.inlined")}, _ -> true
+-  | {txt=("unrolled"|"ocaml.unrolled")}, _ when Config.flambda -> true
++  | {txt=("unrolled"|"ocaml.unrolled")}, _ when !Config.flambda -> true
+   | _ -> false
+ 
+ let is_specialise_attribute = function
+-  | {txt=("specialise"|"ocaml.specialise")}, _ when Config.flambda -> true
++  | {txt=("specialise"|"ocaml.specialise")}, _ when !Config.flambda -> true
+   | _ -> false
+ 
+ let is_specialised_attribute = function
+-  | {txt=("specialised"|"ocaml.specialised")}, _ when Config.flambda -> true
++  | {txt=("specialised"|"ocaml.specialised")}, _ when !Config.flambda -> true
+   | _ -> false
+ 
+ let find_attribute p attributes =
+diff --git a/bytecomp/translobj.ml b/bytecomp/translobj.ml
+index 67f469c..d8400a4 100644
+--- a/bytecomp/translobj.ml
++++ b/bytecomp/translobj.ml
+@@ -111,7 +111,7 @@ let transl_label_init_general f =
+   expr, size
+ 
+ let transl_label_init_flambda f =
+-  assert(Config.flambda);
++  assert(!Config.flambda);
+   let method_cache_id = Ident.create "method_cache" in
+   method_cache := Lvar method_cache_id;
+   (* Calling f (usualy Translmod.transl_struct) requires the
+@@ -130,7 +130,7 @@ let transl_label_init_flambda f =
+   transl_label_init_general (fun () -> expr, size)
+ 
+ let transl_store_label_init glob size f arg =
+-  assert(not Config.flambda);
++  assert(not !Config.flambda);
+   assert(!Clflags.native_code);
+   method_cache := Lprim(Pfield size,
+                         [Lprim(Pgetglobal glob, [], Location.none)],
+diff --git a/driver/optcompile.ml b/driver/optcompile.ml
+index 991b9f5..f61c30c 100644
+--- a/driver/optcompile.ml
++++ b/driver/optcompile.ml
+@@ -83,7 +83,7 @@ let implementation ~backend ppf sourcefile outputprefix =
+           Printtyped.implementation_with_coercion
+     in
+     if not !Clflags.print_types then begin
+-      if Config.flambda then begin
++      if !Config.flambda then begin
+         if !Clflags.classic_inlining then begin
+           Clflags.default_simplify_rounds := 1;
+           Clflags.use_inlining_arguments_set Clflags.classic_arguments;
 diff --git a/middle_end/debuginfo.ml b/middle_end/debuginfo.ml
 index a93f425..047dbd4 100644
 --- a/middle_end/debuginfo.ml
@@ -257,3 +442,66 @@ index 993928c..d14bdd2 100644
 +
 +(** OCAML-EXPLORER *)
 +val to_line : t -> int option
+diff --git a/utils/clflags.ml b/utils/clflags.ml
+index bd88487..1178133 100644
+--- a/utils/clflags.ml
++++ b/utils/clflags.ml
+@@ -166,7 +166,7 @@ let rounds () =
+   | None -> !default_simplify_rounds
+   | Some r -> r
+ 
+-let default_inline_threshold = if Config.flambda then 10. else 10. /. 8.
++let default_inline_threshold = if !Config.flambda then 10. else 10. /. 8.
+ let inline_toplevel_multiplier = 16
+ let default_inline_toplevel_threshold =
+   int_of_float ((float inline_toplevel_multiplier) *. default_inline_threshold)
+diff --git a/utils/config.mli b/utils/config.mli
+index 9b05005..6a3c9c4 100644
+--- a/utils/config.mli
++++ b/utils/config.mli
+@@ -136,7 +136,7 @@ val target : string
+ 
+ val print_config : out_channel -> unit;;
+ 
+-val flambda : bool
++val flambda : bool ref
+         (* Whether the compiler was configured for flambda *)
+ 
+ val spacetime : bool
+diff --git a/utils/config.mlp b/utils/config.mlp
+index e821ef0..2ccfb5a 100644
+--- a/utils/config.mlp
++++ b/utils/config.mlp
+@@ -67,7 +67,7 @@ let mkdll, mkexe, mkmaindll =
+   else
+     "%%MKDLL%%", "%%MKEXE%%", "%%MKMAINDLL%%"
+ 
+-let flambda = %%FLAMBDA%%
++let flambda = ref %%FLAMBDA%%
+ let safe_string = %%SAFE_STRING%%
+ 
+ let exec_magic_number = "Caml1999X011"
+@@ -75,12 +75,12 @@ and cmi_magic_number = "Caml1999I021"
+ and cmo_magic_number = "Caml1999O011"
+ and cma_magic_number = "Caml1999A012"
+ and cmx_magic_number =
+-  if flambda then
++  if !flambda then
+     "Caml1999Y016"
+   else
+     "Caml1999Y015"
+ and cmxa_magic_number =
+-  if flambda then
++  if !flambda then
+     "Caml1999Z015"
+   else
+     "Caml1999Z014"
+@@ -161,7 +161,7 @@ let print_config oc =
+   p_bool "systhread_supported" systhread_supported;
+   p "host" host;
+   p "target" target;
+-  p_bool "flambda" flambda;
++  p_bool "flambda" !flambda;
+   p_bool "spacetime" spacetime;
+   p_bool "safe_string" safe_string;
+ 
