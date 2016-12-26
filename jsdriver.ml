@@ -61,7 +61,36 @@ let last_asm = ref []
 
 let syntax : [`Masm | `Gas] ref = ref `Masm
 
-let compile asmcm s =
+let b = Buffer.create 10000
+
+let refresh cm =
+  let k = ref (-1) in
+  Buffer.clear b;
+  let aux (n, i) =
+    incr k;
+    begin match n with
+    | None -> ()
+    | Some n ->
+        let n = n - 1 in (* zero-based *)
+        Hashtbl.replace asm2ml !k n;
+        let ii = try Hashtbl.find ml2asm n with Not_found -> [] in
+        Hashtbl.replace ml2asm n (!k :: ii)
+    end;
+    let print_line =
+      match !syntax with
+      | `Masm -> X86_masm.print_line
+      | `Gas -> X86_gas.print_line
+    in
+    print_line b i;
+    Buffer.add_char b '\n'
+  in
+  List.iter (function
+      | (_, (X86_ast.Ins _ | X86_ast.NewLabel _)) as arg -> aux arg
+      | _ -> ()) !last_asm;
+  let s = Buffer.contents b in
+  cm##setValue (Js.string s)
+
+let compile cm s =
   Hashtbl.clear ml2asm;
   Hashtbl.clear asm2ml;
   let name = "main.ml" in
@@ -73,41 +102,12 @@ let compile asmcm s =
       Sys_js.update_file
   in
   f ~name ~content;
-  let b = Buffer.create 10000 in
-  let k = ref (-1) in
-  let refresh () =
-    k := -1;
-    Buffer.clear b;
-    let aux (n, i) =
-      incr k;
-      begin match n with
-      | None -> ()
-      | Some n ->
-          let n = n - 1 in (* zero-based *)
-          Hashtbl.replace asm2ml !k n;
-          let ii = try Hashtbl.find ml2asm n with Not_found -> [] in
-          Hashtbl.replace ml2asm n (!k :: ii)
-      end;
-      let print_line =
-        match !syntax with
-        | `Masm -> X86_masm.print_line
-        | `Gas -> X86_gas.print_line
-      in
-      print_line b i;
-      Buffer.add_char b '\n'
-    in
-    List.iter (function
-        | (_, (X86_ast.Ins _ | X86_ast.NewLabel _)) as arg -> aux arg
-        | _ -> ()) !last_asm
-  in
   let handler asm =
     last_asm := asm;
-    refresh ();
+    refresh cm;
   in
   Emitaux.asm_handler := Some handler;
-  JsooOpt.compile "main.ml";
-  let s = Buffer.contents b in
-  asmcm##setValue (Js.string s)
+  JsooOpt.compile "main.ml"
 
 let value =
   "type t = Add of t * t | Div of t * t | Int of int
@@ -183,6 +183,20 @@ let () =
     last_timeout_id :=
       Some (Dom_html.window##setTimeout (Js.wrap_callback trycompile) (eps *. 1000.))
   in
+  let selectsyntax = Js.coerce (Dom_html.getElementById "syntax") Dom_html.CoerceTo.select (fun _ -> assert false) in
+  let change _  =
+    prerr_endline (Js.to_string selectsyntax##.value);
+    let r =
+      match Js.to_string selectsyntax##.value with
+      | "masm" -> `Masm
+      | "gas" -> `Gas
+      | _ -> assert false
+    in
+    syntax := r;
+    refresh asmcm;
+    Js._true
+  in
+  ignore (Dom_html.addEventListener selectsyntax Dom_html.Event.change (Dom_html.handler change) Js._false);
   mlcm##on "cursorActivity" (Js.wrap_callback cursorActivitySource);
   mlcm##on "changes" (Js.wrap_callback changes);
   asmcm##on "cursorActivity" (Js.wrap_callback cursorActivity)
