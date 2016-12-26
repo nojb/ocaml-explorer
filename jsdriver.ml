@@ -57,6 +57,10 @@ let () =
   Clflags.dlcode := false;
   Clflags.pic_code := false
 
+let last_asm = ref []
+
+let syntax : [`Masm | `Gas] ref = ref `Masm
+
 let compile asmcm s =
   Hashtbl.clear ml2asm;
   Hashtbl.clear asm2ml;
@@ -71,7 +75,9 @@ let compile asmcm s =
   f ~name ~content;
   let b = Buffer.create 10000 in
   let k = ref (-1) in
-  let handler print_line asm =
+  let refresh () =
+    k := -1;
+    Buffer.clear b;
     let aux (n, i) =
       incr k;
       begin match n with
@@ -82,12 +88,21 @@ let compile asmcm s =
           let ii = try Hashtbl.find ml2asm n with Not_found -> [] in
           Hashtbl.replace ml2asm n (!k :: ii)
       end;
+      let print_line =
+        match !syntax with
+        | `Masm -> X86_masm.print_line
+        | `Gas -> X86_gas.print_line
+      in
       print_line b i;
       Buffer.add_char b '\n'
     in
     List.iter (function
         | (_, (X86_ast.Ins _ | X86_ast.NewLabel _)) as arg -> aux arg
-        | _ -> ()) asm
+        | _ -> ()) !last_asm
+  in
+  let handler asm =
+    last_asm := asm;
+    refresh ();
   in
   Emitaux.asm_handler := Some handler;
   JsooOpt.compile "main.ml";

@@ -34,7 +34,7 @@ index 4513260..4bfd8ad 100644
  asmcomp/emitaux.cmo : middle_end/debuginfo.cmi utils/config.cmi \
      asmcomp/cmm.cmi utils/clflags.cmi asmcomp/arch.cmo asmcomp/emitaux.cmi
 diff --git a/asmcomp/amd64/emit.mlp b/asmcomp/amd64/emit.mlp
-index 85b4cee..a60b1c1 100644
+index 85b4cee..df6ec82 100644
 --- a/asmcomp/amd64/emit.mlp
 +++ b/asmcomp/amd64/emit.mlp
 @@ -484,6 +484,8 @@ let tailrec_entry_point = ref 0
@@ -62,14 +62,13 @@ index 85b4cee..a60b1c1 100644
    List.iter emit_call_gc !call_gc_sites;
    emit_call_bound_errors ();
    if frame_required() then begin
-@@ -1124,11 +1128,16 @@ let end_assembly() =
+@@ -1124,11 +1128,15 @@ let end_assembly() =
    end;
  
    let asm =
 +    match !Emitaux.asm_handler with
 +    | Some f ->
-+        if X86_proc.masm then Some (f X86_masm.print_line)
-+        else Some (f X86_gas.print_line)
++        Some f
 +    | None ->
      if !Emitaux.create_asm_file then
        Some
@@ -154,7 +153,7 @@ index 1149814..4359ba1 100644
  let create_asm_file = ref true
 +let asm_handler = ref None
 diff --git a/asmcomp/emitaux.mli b/asmcomp/emitaux.mli
-index 1e4addd..768bcae 100644
+index 1e4addd..f657e6f 100644
 --- a/asmcomp/emitaux.mli
 +++ b/asmcomp/emitaux.mli
 @@ -75,3 +75,5 @@ val binary_backend_available: bool ref
@@ -162,7 +161,7 @@ index 1e4addd..768bcae 100644
  val create_asm_file: bool ref
      (** Are we actually generating the textual assembly file? *)
 +
-+val asm_handler: ((Buffer.t -> X86_ast.asm_line -> unit) -> (int option * X86_ast.asm_line) list -> unit) option ref
++val asm_handler: ((int option * X86_ast.asm_line) list -> unit) option ref
 diff --git a/asmcomp/x86_gas.mli b/asmcomp/x86_gas.mli
 index 3c3a4ae..bf63a58 100644
 --- a/asmcomp/x86_gas.mli
