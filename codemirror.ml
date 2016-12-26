@@ -56,3 +56,9 @@ let createCodeMirror ?lineNumbers ?readOnly ?mode ?value ?lineWrapping node =
   let node = inject node in
   let args = if params <> [] then [|node; obj (Array.of_list params)|] else [|node|] in
   fun_call (js_expr "CodeMirror") args
+
+let addLineBackgroundClass cm n _class =
+  cm##addLineClass n (Js.string "background") (Js.string _class);
+  object
+    method clear = cm##removeLineClass n (Js.string "background") (Js.string _class)
+  end

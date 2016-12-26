@@ -33,3 +33,5 @@ class type codeMirror =
   end
 
 val createCodeMirror: ?lineNumbers:bool -> ?readOnly:bool -> ?mode:string -> ?value:string -> ?lineWrapping:bool -> #Dom.node Js.t -> codeMirror Js.t
+
+val addLineBackgroundClass: codeMirror Js.t -> int -> string -> < clear: unit >

@@ -108,19 +108,13 @@ let () =
   (* let _ = Dom_html.addEventListener asmdiv Dom_html.Event.resize (Dom_html.handler resize) Js._false in *)
   (* let _ = Dom_html.addEventListener mldiv Dom_html.Event.resize (Dom_html.handler resize) Js._false in *)
   let lastMarks = ref [] in
-  let lastMarksSource = ref None in
   let cursorActivitySource () =
-    List.iter (fun line -> asmcm##removeLineClass line (Js.string "background") (Js.string "foo")) !lastMarks;
-    opt_iter (fun line -> mlcm##removeLineClass line (Js.string "background") (Js.string "foo")) !lastMarksSource;
-    let curs = mlcm##getCursor in
-    let n = curs##.line in
+    List.iter (fun mark -> mark#clear) !lastMarks;
+    let n = mlcm##getCursor##.line in
     let lines = try Hashtbl.find ml2asm n with Not_found -> [] in
-    lastMarks := lines;
-    List.iter (fun line ->
-        asmcm##addLineClass line (Js.string "background") (Js.string "foo")
-      ) lines;
-    lastMarksSource := Some n;
-    mlcm##addLineClass n (Js.string "background") (Js.string "foo");
+    lastMarks :=
+      Codemirror.addLineBackgroundClass mlcm n "foo" ::
+      List.map (fun n -> Codemirror.addLineBackgroundClass asmcm n "foo") lines;
     if lines <> [] then
       let pos =
         object%js
@@ -139,19 +133,14 @@ let () =
       asmcm##scrollIntoView pos
   in
   let cursorActivity () =
-    List.iter (fun line -> asmcm##removeLineClass line (Js.string "background") (Js.string "foo")) !lastMarks;
-    opt_iter (fun line -> mlcm##removeLineClass line (Js.string "background") (Js.string "foo")) !lastMarksSource;
-    let curs = asmcm##getCursor in
-    let line = curs##.line in
+    List.iter (fun mark -> mark#clear) !lastMarks;
+    let line = asmcm##getCursor##.line in
     match Hashtbl.find asm2ml line with
     | n ->
         let lines = try Hashtbl.find ml2asm n with Not_found -> [] in
-        lastMarks := lines;
-        List.iter (fun line ->
-            asmcm##addLineClass line (Js.string "background") (Js.string "foo")
-          ) lines;
-        lastMarksSource := Some n;
-        mlcm##addLineClass n (Js.string "background") (Js.string "foo");
+        lastMarks :=
+          Codemirror.addLineBackgroundClass mlcm n "foo" ::
+          List.map (fun n -> Codemirror.addLineBackgroundClass asmcm n "foo") lines;
     | exception Not_found ->
         ()
   in
