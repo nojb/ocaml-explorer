@@ -33,12 +33,6 @@ jsdriver.js: jsdriver.byte
 stdlib.cmis.js:
 	$(JSOO_MKCMIS) -prefix /cmis $(OCAML_SRCDIR)/stdlib/stdlib.cma -o $@
 
-test.byte: test.ml
-	$(OCAMLC) -I $(JSOO_DIR) -ppx $(JSOO_DIR)/ppx_js js_of_ocaml.cma $< -g -o $@
-
-test.js: test.byte
-	$(JSOO) --pretty --source-map $< -o $@
-
 clean:
 	$(RM) *.cm* *.byte jsdriver.js *.annot *.map
 
