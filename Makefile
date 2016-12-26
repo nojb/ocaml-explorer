@@ -33,6 +33,19 @@ jsdriver.js: jsdriver.byte
 stdlib.cmis.js:
 	$(JSOO_MKCMIS) -prefix /cmis $(OCAML_SRCDIR)/stdlib/stdlib.cma -o $@
 
+PUBLISH = \
+	index.html jsdriver.js jsdriver.map stdlib.cmis.js \
+	thirdparty/codemirror.css thirdparty/codemirror.js thirdparty/gas.js thirdparty/mllike.js
+
+publish: all
+	git checkout --orphan tmp
+	git reset
+	git add -f $(PUBLISH)
+	git commit -m "Publish"
+	git push -u origin gh-pages --force
+	git checkout -f master
+	git branch -D tmp
+
 clean:
 	$(RM) *.cm* *.byte jsdriver.js stdlib.cmis.js *.annot *.map
 
