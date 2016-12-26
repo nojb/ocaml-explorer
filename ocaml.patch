@@ -289,6 +289,19 @@ index 1e4addd..f657e6f 100644
      (** Are we actually generating the textual assembly file? *)
 +
 +val asm_handler: ((int option * X86_ast.asm_line) list -> unit) option ref
+diff --git a/asmcomp/x86_gas.ml b/asmcomp/x86_gas.ml
+index f905dc3..0f7bdf1 100644
+--- a/asmcomp/x86_gas.ml
++++ b/asmcomp/x86_gas.ml
+@@ -296,7 +296,7 @@ let print_line b = function
+   | External _
+   | Mode386
+   | Model _
+-    -> assert false
++    -> ()
+ 
+ let generate_asm oc lines =
+   let b = Buffer.create 10000 in
 diff --git a/asmcomp/x86_gas.mli b/asmcomp/x86_gas.mli
 index 3c3a4ae..bf63a58 100644
 --- a/asmcomp/x86_gas.mli
@@ -299,6 +312,19 @@ index 3c3a4ae..bf63a58 100644
  
 +val print_line: Buffer.t -> X86_ast.asm_line -> unit
  val generate_asm: out_channel -> X86_ast.asm_line list -> unit
+diff --git a/asmcomp/x86_masm.ml b/asmcomp/x86_masm.ml
+index eb010b8..1b34458 100644
+--- a/asmcomp/x86_masm.ml
++++ b/asmcomp/x86_masm.ml
+@@ -246,7 +246,7 @@ let print_line b = function
+   | Set _
+   | Size _
+   | Type _
+-    -> assert false
++    -> ()
+ 
+ let generate_asm oc lines =
+   let b = Buffer.create 10000 in
 diff --git a/asmcomp/x86_masm.mli b/asmcomp/x86_masm.mli
 index 9027fe6..7e47c15 100644
 --- a/asmcomp/x86_masm.mli

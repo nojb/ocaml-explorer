@@ -92,6 +92,8 @@ let syntax : [`Masm | `Gas] ref = ref `Masm
 
 let b = Buffer.create 10000
 
+let show_directives = ref false
+
 let refresh () =
   prerr_endline "Start refresh";
   let k = ref (-1) in
@@ -116,7 +118,9 @@ let refresh () =
   in
   List.iter (function
       | (_, (X86_ast.Ins _ | X86_ast.NewLabel _)) as arg -> aux arg
-      | _ -> ()) !last_asm;
+      | _ when not !show_directives -> ()
+      | arg -> aux arg
+    ) !last_asm;
   let s = Buffer.contents b in
   asmcm##setValue (Js.string s);
   prerr_endline "Refresh OK"
@@ -161,6 +165,17 @@ let () =
     Js._true
   in
   flambdainput##.onchange := Dom_html.handler h
+
+let directivesinput =
+  Js.coerce (Dom_html.getElementById "directives") Dom_html.CoerceTo.input (fun _ -> assert false)
+
+let () =
+  let h _ =
+    show_directives := Js.to_bool directivesinput##.checked;
+    refresh ();
+    Js._true
+  in
+  directivesinput##.onchange := Dom_html.handler h
 
 let selectsyntax =
   Js.coerce (Dom_html.getElementById "syntax") Dom_html.CoerceTo.select (fun _ -> assert false)
