@@ -2,10 +2,6 @@ let opt_map f = function
   | None -> None
   | Some x -> Some (f x)
 
-let opt_iter f = function
-  | None -> ()
-  | Some x -> f x
-
 let console_buf : string option array = Array.make 10 None
 
 let addconsole s =
@@ -97,6 +93,7 @@ let syntax : [`Masm | `Gas] ref = ref `Masm
 let b = Buffer.create 10000
 
 let refresh () =
+  prerr_endline "Start refresh";
   let k = ref (-1) in
   Buffer.clear b;
   let aux (n, i) =
@@ -121,7 +118,8 @@ let refresh () =
       | (_, (X86_ast.Ins _ | X86_ast.NewLabel _)) as arg -> aux arg
       | _ -> ()) !last_asm;
   let s = Buffer.contents b in
-  asmcm##setValue (Js.string s)
+  asmcm##setValue (Js.string s);
+  prerr_endline "Refresh OK"
 
 let compile s =
   Hashtbl.clear ml2asm;
@@ -141,6 +139,38 @@ let compile s =
   in
   Emitaux.asm_handler := Some handler;
   JsooOpt.compile "main.ml"
+
+let picinput =
+  Js.coerce (Dom_html.getElementById "pic") Dom_html.CoerceTo.input (fun _ -> assert false)
+
+let () =
+  let h _ =
+    Clflags.pic_code := Js.to_bool picinput##.checked;
+    compile mlcm##getValue;
+    Js._true
+  in
+  picinput##.onchange := Dom_html.handler h
+
+let flambdainput =
+  Js.coerce (Dom_html.getElementById "flambda") Dom_html.CoerceTo.input (fun _ -> assert false)
+
+let selectsyntax =
+  Js.coerce (Dom_html.getElementById "syntax") Dom_html.CoerceTo.select (fun _ -> assert false)
+
+let () =
+  let h _  =
+    prerr_endline (Js.to_string selectsyntax##.value);
+    let r =
+      match Js.to_string selectsyntax##.value with
+      | "masm" -> `Masm
+      | "gas" -> `Gas
+      | _ -> assert false
+    in
+    syntax := r;
+    refresh ();
+    Js._true
+  in
+  selectsyntax##.onchange := Dom_html.handler h
 
 let () =
   let lastMarks = ref [] in
@@ -187,20 +217,6 @@ let () =
     last_timeout_id :=
       Some (Dom_html.window##setTimeout (Js.wrap_callback trycompile) (eps *. 1000.))
   in
-  let selectsyntax = Js.coerce (Dom_html.getElementById "syntax") Dom_html.CoerceTo.select (fun _ -> assert false) in
-  let change _  =
-    prerr_endline (Js.to_string selectsyntax##.value);
-    let r =
-      match Js.to_string selectsyntax##.value with
-      | "masm" -> `Masm
-      | "gas" -> `Gas
-      | _ -> assert false
-    in
-    syntax := r;
-    refresh ();
-    Js._true
-  in
-  ignore (Dom_html.addEventListener selectsyntax Dom_html.Event.change (Dom_html.handler change) Js._false);
   mlcm##on "cursorActivity" (Js.wrap_callback cursorActivitySource);
   mlcm##on "changes" (Js.wrap_callback changes);
   asmcm##on "cursorActivity" (Js.wrap_callback cursorActivity)
