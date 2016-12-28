@@ -42,7 +42,7 @@ publish: all
 	git reset
 	git add -f $(PUBLISH)
 	git commit -m "Publish"
-	git push -u origin gh-pages --force
+	git push -u origin tmp:gh-pages --force
 	git checkout -f master
 	git branch -D tmp
 
