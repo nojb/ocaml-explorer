@@ -36,7 +36,7 @@ stdlib.cmis.js:
 	$(JSOO_MKCMIS) -prefix /cmis $(OCAML_SRCDIR)/stdlib/stdlib.cma -o $@
 
 PUBLISH = \
-	index.html jsdriver.js jsdriver.map stdlib.cmis.js \
+	index.html jsdriver.js stdlib.cmis.js \
 	thirdparty/codemirror.css thirdparty/codemirror.js thirdparty/gas.js thirdparty/mllike.js
 
 publish: all
