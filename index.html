@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>js_of_ocaml example</title>
+    <script type="text/javascript" src="thirdparty/codemirror.js"></script>
+    <script type="text/javascript" src="thirdparty/mllike.js"></script>
+    <script type="text/javascript" src="thirdparty/gas.js"></script>
+    <link rel="stylesheet" href="thirdparty/codemirror.css">
+    <style>
+
+* {
+  /* outline: green dotted; */
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  height: 100vh;
+  width: 100vw;
+}
+
+.table {
+  display: table;
+}
+
+.cell {
+  display: table-cell;
+}
+
+.half-width {
+  width: 50%;
+}
+
+.full-height {
+  height: 100%;
+}
+
+.full-width {
+  width: 100%;
+}
+
+.no-height {
+  height: 0px;
+}
+
+.row {
+  display: table-row;
+}
+
+#console {
+  color: red;
+  white-space: pre;
+  font-family: monospace;
+  height: 10em;
+  overflow-y: scroll;
+}
+
+.foo {
+  background-color: #FFD1DC;
+}
+
+.cm-s-default {
+  position: absolute;
+}
+    </style>
+  </head>
+  <body>
+    <div class="table full-height full-width" id="content">
+      <div class="row no-height"><h1>OCaml Explorer</h1></div>
+      <div class="row no-height">
+        <div class="cell"></div>
+        <div class="cell">
+          <select id="syntax">
+            <option value="gas">gas</option>
+            <option value="masm">masm</option>
+          </select>
+          <input id="pic" type="checkbox">fPIC</input>
+          <input id="flambda" type="checkbox">FLAMBDA</input>
+          <input id="directives" type="checkbox">Directives</input>
+        </div>
+      </div>
+      <div class="row full-height">
+        <div id="left" class="cell half-width"></div>
+        <div id="right" class="cell half-width"></div>
+      </div>
+      <div class="row no-height" id="console"></div>
+    </div>
+    <a href="https://github.com/nojb/ocaml-explorer">
+      <img style="position: absolute; top: 0; right: 0; border: 0;" src="https://camo.githubusercontent.com/365986a132ccd6a44c23a9169022c0b5c890c387/68747470733a2f2f73332e616d617a6f6e6177732e636f6d2f6769746875622f726962626f6e732f666f726b6d655f72696768745f7265645f6161303030302e706e67" alt="Fork me on GitHub" data-canonical-src="https://s3.amazonaws.com/github/ribbons/forkme_right_red_aa0000.png">
+    </a>
+  </body>
+  <script type="text/javascript" src="stdlib.cmis.js"></script>
+  <script type="text/javascript" src="jsdriver.js"></script>
+</html>
