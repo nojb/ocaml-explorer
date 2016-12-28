@@ -63,6 +63,7 @@ let codeMirror ?mode ?value ?readOnly div =
     Js._false
   in
   ignore (addEventListener window Event.resize (handler resize) Js._false);
+  ignore (resize ());
   cm
 
 let value =
