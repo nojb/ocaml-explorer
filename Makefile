@@ -1,6 +1,7 @@
 OCAMLC = ocamlc
 OCAMLFLAGS = -annot -safe-string -bin-annot -g
 JSOO = js_of_ocaml
+JSOOFLAGS = # --pretty --source-map
 JSOO_DIR = $(shell ocamlfind query js_of_ocaml)
 JSOO_MKCMIS = jsoo_mkcmis
 OCAML_SRCDIR = ocaml
@@ -29,7 +30,7 @@ jsdriver.byte: codemirror.cmo jsooOpt.cmo jsdriver.cmo
 	$(OCAMLC) -I $(JSOO_DIR) $(INCLUDE) $(COMPILERLIBS) js_of_ocaml.cma $(OCAMLFLAGS) $^ -o $@
 
 jsdriver.js: jsdriver.byte
-	$(JSOO) --extern-fs --pretty --source-map +weak.js +toplevel.js +dynlink.js $< -o $@
+	$(JSOO) --extern-fs $(JSOOFLAGS) +weak.js +toplevel.js +dynlink.js $< -o $@
 
 stdlib.cmis.js:
 	$(JSOO_MKCMIS) -prefix /cmis $(OCAML_SRCDIR)/stdlib/stdlib.cma -o $@
