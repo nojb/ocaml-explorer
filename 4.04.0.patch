@@ -143,6 +143,26 @@ index 92f68b5..969a74b 100644
      num_available_registers.(0) <- 12
    end else
      num_available_registers.(0) <- 13
+diff --git a/asmcomp/asmgen.ml b/asmcomp/asmgen.ml
+index 020732d..3339bb3 100644
+--- a/asmcomp/asmgen.ml
++++ b/asmcomp/asmgen.ml
+@@ -151,6 +151,7 @@ let compile_unit ~source_provenance _output_prefix asm_filename keep_asm
+       if not keep_asm then remove_file asm_filename;
+       raise exn
+     end;
++    if !Emitaux.asm_handler = None then begin
+     let assemble_result =
+       Timings.(time (Assemble source_provenance))
+         (Proc.assemble_file asm_filename) obj_filename
+@@ -158,6 +159,7 @@ let compile_unit ~source_provenance _output_prefix asm_filename keep_asm
+     if assemble_result <> 0
+     then raise(Error(Assembler_error asm_filename));
+     if create_asm && not keep_asm then remove_file asm_filename
++    end
+   with exn ->
+     remove_file obj_filename;
+     raise exn
 diff --git a/asmcomp/asmlibrarian.ml b/asmcomp/asmlibrarian.ml
 index ca3f574..a6c8734 100644
 --- a/asmcomp/asmlibrarian.ml

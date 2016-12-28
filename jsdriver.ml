@@ -2,44 +2,16 @@ let opt_map f = function
   | None -> None
   | Some x -> Some (f x)
 
-let console_buf : string option array = Array.make 10 None
-
-let addconsole s =
-  let rec loop i =
-    if i >= Array.length console_buf then begin
-      for i = 1 to Array.length console_buf - 1 do
-        console_buf.(i-1) <- console_buf.(i)
-      done;
-      console_buf.(Array.length console_buf - 1) <- Some s
-    end else begin
-      match console_buf.(i) with
-      | None -> console_buf.(i) <- Some s
-      | Some _ -> loop (i + 1)
-    end
-  in
-  loop 0
-
-let getconsole () =
-  let b = Buffer.create 100 in
-  let rec loop i =
-    if i >= Array.length console_buf then
-      Buffer.contents b
-    else begin
-      match console_buf.(i) with
-      | Some s ->
-          Buffer.add_string b s;
-          Buffer.add_char b '\n';
-          loop (i + 1)
-      | None ->
-          Buffer.contents b
-    end
-  in
-  loop 0
+let console =
+  Dom_html.getElementById "console"
 
 let log s =
-  addconsole s;
-  let console = Dom_html.getElementById "console" in
-  console##.textContent := Js.Opt.return (Js.string (getconsole ()))
+  let s =
+    match Js.Opt.to_option console##.textContent with
+    | None -> s
+    | Some s0 -> Js.to_string s0 ^ s
+  in
+  console##.textContent := Js.Opt.return (Js.string s)
 
 let logf fmt =
   Printf.ksprintf log fmt
@@ -88,11 +60,11 @@ let asmcm =
 
 let last_asm = ref []
 
-let syntax : [`Masm | `Gas] ref = ref `Masm
+let syntax : [`Masm | `Gas] ref = ref `Gas
 
 let b = Buffer.create 10000
 
-let show_directives = ref false
+let show_directives = ref true
 
 let refresh () =
   prerr_endline "Start refresh";
@@ -142,7 +114,14 @@ let compile s =
     refresh ();
   in
   Emitaux.asm_handler := Some handler;
-  JsooOpt.compile "main.ml"
+  let b = Buffer.create 0 in
+  let ppf = Format.formatter_of_buffer b in
+  match JsooOpt.compile ppf "main.ml" with
+  | Ok () ->
+      log "All OK.\n"
+  | Error () ->
+      Format.pp_print_flush ppf ();
+      log (Buffer.contents b)
 
 let picinput =
   Js.coerce (Dom_html.getElementById "pic") Dom_html.CoerceTo.input (fun _ -> assert false)
@@ -154,7 +133,7 @@ let () =
     compile mlcm##getValue;
     Js._true
   in
-  upd ();
+  picinput##.checked := Js.bool !Clflags.pic_code;
   picinput##.onchange := Dom_html.handler h
 
 let flambdainput =
@@ -167,7 +146,7 @@ let () =
     compile mlcm##getValue;
     Js._true
   in
-  upd ();
+  flambdainput##.checked := Js.bool !Config.flambda;
   flambdainput##.onchange := Dom_html.handler h
 
 let directivesinput =
@@ -180,7 +159,7 @@ let () =
     refresh ();
     Js._true
   in
-  upd ();
+  directivesinput##.checked := Js.bool !show_directives;
   directivesinput##.onchange := Dom_html.handler h
 
 let selectsyntax =
@@ -201,7 +180,7 @@ let () =
     refresh ();
     Js._true
   in
-  upd ();
+  selectsyntax##.value := Js.string (match !syntax with `Masm -> "masm" | `Gas -> "gas");
   selectsyntax##.onchange := Dom_html.handler h
 
 let () =
