@@ -62,12 +62,20 @@ let last_asm = ref []
 
 let syntax : [`Masm | `Gas] ref = ref `Gas
 
+let string_of_syntax = function
+  | `Masm -> "masm"
+  | `Gas -> "gas"
+
+let syntax_of_string = function
+  | "masm" -> `Masm
+  | "gas" -> `Gas
+  | _ -> failwith "syntax_of_string"
+
 let b = Buffer.create 10000
 
 let show_directives = ref true
 
 let refresh () =
-  prerr_endline "Start refresh";
   let k = ref (-1) in
   Buffer.clear b;
   let aux (n, i) =
@@ -94,8 +102,7 @@ let refresh () =
       | arg -> aux arg
     ) !last_asm;
   let s = Buffer.contents b in
-  asmcm##setValue (Js.string s);
-  prerr_endline "Refresh OK"
+  asmcm##setValue (Js.string s)
 
 let compile s =
   Hashtbl.clear ml2asm;
@@ -127,9 +134,8 @@ let picinput =
   Js.coerce (Dom_html.getElementById "pic") Dom_html.CoerceTo.input (fun _ -> assert false)
 
 let () =
-  let upd () = Clflags.pic_code := Js.to_bool picinput##.checked in
   let h _ =
-    upd ();
+    Clflags.pic_code := Js.to_bool picinput##.checked;
     compile mlcm##getValue;
     Js._true
   in
@@ -140,9 +146,8 @@ let flambdainput =
   Js.coerce (Dom_html.getElementById "flambda") Dom_html.CoerceTo.input (fun _ -> assert false)
 
 let () =
-  let upd () = Config.flambda := Js.to_bool flambdainput##.checked in
   let h _ =
-    upd ();
+    Config.flambda := Js.to_bool flambdainput##.checked;
     compile mlcm##getValue;
     Js._true
   in
@@ -153,9 +158,8 @@ let directivesinput =
   Js.coerce (Dom_html.getElementById "directives") Dom_html.CoerceTo.input (fun _ -> assert false)
 
 let () =
-  let upd () = show_directives := Js.to_bool directivesinput##.checked in
   let h _ =
-    upd ();
+    show_directives := Js.to_bool directivesinput##.checked;
     refresh ();
     Js._true
   in
@@ -166,21 +170,12 @@ let selectsyntax =
   Js.coerce (Dom_html.getElementById "syntax") Dom_html.CoerceTo.select (fun _ -> assert false)
 
 let () =
-  let upd () =
-    let r =
-      match Js.to_string selectsyntax##.value with
-      | "masm" -> `Masm
-      | "gas" -> `Gas
-      | _ -> assert false
-    in
-    syntax := r
-  in
   let h _  =
-    upd ();
+    syntax := syntax_of_string (Js.to_string selectsyntax##.value);
     refresh ();
     Js._true
   in
-  selectsyntax##.value := Js.string (match !syntax with `Masm -> "masm" | `Gas -> "gas");
+  selectsyntax##.value := Js.string (string_of_syntax !syntax);
   selectsyntax##.onchange := Dom_html.handler h
 
 let () =
