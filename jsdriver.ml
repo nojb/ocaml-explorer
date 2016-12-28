@@ -79,14 +79,14 @@ let refresh () =
   let k = ref (-1) in
   Buffer.clear b;
   let aux (n, i) =
-    incr k;
-    begin match n with
-    | None -> ()
-    | Some n ->
+    begin match n, i with
+    | None, _ -> ()
+    | Some n, X86_ast.Ins _ ->
         let n = n - 1 in (* zero-based *)
         Hashtbl.replace asm2ml !k n;
         let ii = try Hashtbl.find ml2asm n with Not_found -> [] in
         Hashtbl.replace ml2asm n (!k :: ii)
+    | Some _, _ -> ()
     end;
     let print_line =
       match !syntax with
@@ -97,9 +97,9 @@ let refresh () =
     Buffer.add_char b '\n'
   in
   List.iter (function
-      | (_, (X86_ast.Ins _ | X86_ast.NewLabel _)) as arg -> aux arg
+      | (_, (X86_ast.Ins _ | X86_ast.NewLabel _)) as arg -> incr k; aux arg
       | _ when not !show_directives -> ()
-      | arg -> aux arg
+      | arg -> incr k; aux arg
     ) !last_asm;
   let s = Buffer.contents b in
   asmcm##setValue (Js.string s)
